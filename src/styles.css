@@ -17,12 +17,12 @@
 
 * { box-sizing: border-box; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-body { min-width: 320px; background: var(--background); }
+body { min-width: 320px; background-color: #535855; background-image: url('/nintendo-pattern.svg'); background-size: 240px 135px; }
 button, input { font: inherit; }
 button { color: inherit; }
 button:focus-visible, label:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-.app-shell { display: grid; width: 100%; height: 100vh; height: 100svh; min-height: 0; grid-template-rows: minmax(0, 1fr); overflow: hidden; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+.app-shell { display: grid; width: 100%; height: 100vh; height: 100dvh; min-height: 0; grid-template-rows: minmax(0, 1fr); overflow: hidden; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
 .topbar, .console { width: min(1180px, 100%); margin: 0 auto; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 0 20px; }
 .eyebrow { margin: 0 0 6px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .16em; }
@@ -39,7 +39,7 @@ h2 { margin-bottom: 0; font-size: 20px; }
 .button-quiet:hover { background: #252d2d; }
 input[type="file"] { display: none; }
 
-.home-shell { position: relative; isolation: isolate; display: grid; width: 100%; height: 100vh; height: 100svh; min-height: 0; grid-template-rows: minmax(0, 1fr); overflow: hidden; padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); background: #090b0d; }
+.home-shell { position: relative; isolation: isolate; display: grid; width: 100%; height: 100vh; height: 100dvh; min-height: 0; grid-template-rows: minmax(0, 1fr); overflow: hidden; padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); background: #090b0d; }
 .home-shell::after { content: ''; position: absolute; z-index: -1; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(0,0,0,.2) 3px 4px); mix-blend-mode: multiply; }
 .retro-atmosphere { position: absolute; z-index: -2; inset: 0; overflow: hidden; pointer-events: none; background: radial-gradient(circle at 50% 38%, rgba(164,48,45,.16), transparent 25%), radial-gradient(ellipse at 50% 110%, rgba(70,85,91,.35), transparent 54%), linear-gradient(#111518, #080a0c 64%); }
 .retro-grid { position: absolute; inset: 52% -20% -55%; background-image: linear-gradient(rgba(190,52,49,.15) 1px, transparent 1px), linear-gradient(90deg, rgba(190,52,49,.15) 1px, transparent 1px); background-size: 42px 28px; transform: perspective(420px) rotateX(62deg); transform-origin: top; animation: retro-grid-drift 5s linear infinite; mask-image: linear-gradient(to bottom, transparent, #000 25%); }
@@ -312,7 +312,7 @@ kbd { min-width: 28px; border: 1px solid var(--separator); border-bottom-color: 
 }
 
 @media (orientation: portrait) and (max-width: 900px) {
-  .app-shell { padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); background: radial-gradient(circle at 50% 18%, #848881, #535855 76%); }
+  .app-shell { padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); background-color: #535855; background-image: url('/nintendo-pattern.svg'), radial-gradient(circle at 50% 18%, #848881, #535855 76%); background-size: 240px 135px, 100% 100%; background-repeat: repeat, no-repeat; }
   .console { position: relative; isolation: isolate; width: min(560px, 100%); height: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto auto clamp(150px, 22vh, 185px) auto; grid-template-rows: auto auto clamp(150px, 22svh, 185px) auto; align-content: start; align-items: center; gap: 8px 18px; overflow: hidden; border: 1px solid #d3d2c4; border-radius: 14px 14px 44px 14px; padding: 10px 12px 14px; background: linear-gradient(112deg, #c8c7b9, #aaa99d 72%, #929388); box-shadow: inset 3px 3px 0 rgba(255,255,255,.2), inset -5px -5px 0 rgba(58,60,56,.18), 0 10px 28px rgba(0,0,0,.38); }
   .console::after { content: ''; position: absolute; z-index: -1; right: 20px; bottom: 15px; width: 68px; height: 26px; opacity: .28; background: repeating-linear-gradient(105deg, transparent 0 7px, #424641 7px 10px, transparent 10px 15px); transform: rotate(-5deg); }
   .game-column { display: contents; }

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">
+  <g fill="none" stroke="#e4e3d8" stroke-width="3" opacity="0.13" transform="rotate(-12 160 90)">
+    <rect x="18" y="25" width="164" height="58" rx="29"/>
+    <rect x="173" y="111" width="132" height="46" rx="23"/>
+  </g>
+  <g fill="#e4e3d8" opacity="0.13" font-family="Arial Rounded MT Bold, Arial, sans-serif" font-weight="800" text-anchor="middle" transform="rotate(-12 160 90)">
+    <text x="100" y="64" font-size="28">Nintendo</text>
+    <text x="239" y="141" font-size="21">Nintendo</text>
+  </g>
+</svg>
