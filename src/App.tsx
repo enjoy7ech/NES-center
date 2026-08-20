@@ -127,6 +127,8 @@ type ControlButtonProps = {
   onInput: (button: ControllerButton, pressed: boolean) => void
 }
 
+const nativeSwitchProps = { switch: '' } as React.InputHTMLAttributes<HTMLInputElement>
+
 function triggerHapticFeedback() {
   if (!('vibrate' in navigator)) return
   try {
@@ -137,17 +139,19 @@ function triggerHapticFeedback() {
 }
 
 function ControlButton({ button, label, className = '', onInput }: ControlButtonProps) {
-  const release = (event: React.PointerEvent<HTMLButtonElement>) => {
+  const release = (event: React.PointerEvent<HTMLLabelElement>) => {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
     onInput(button, false)
   }
 
   return (
-    <button
+    <label
       className={`control-button ${className}`}
+      role="button"
+      tabIndex={0}
       aria-label={controlLabels[button]}
       onPointerDown={event => {
-        event.preventDefault()
+        if (event.button !== 0) return
         event.currentTarget.setPointerCapture(event.pointerId)
         triggerHapticFeedback()
         onInput(button, true)
@@ -156,9 +160,27 @@ function ControlButton({ button, label, className = '', onInput }: ControlButton
       onPointerCancel={release}
       onLostPointerCapture={() => onInput(button, false)}
       onContextMenu={event => event.preventDefault()}
+      onKeyDown={event => {
+        if (event.repeat || (event.key !== 'Enter' && event.key !== ' ')) return
+        event.preventDefault()
+        triggerHapticFeedback()
+        onInput(button, true)
+      }}
+      onKeyUp={event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        onInput(button, false)
+      }}
     >
-      {label}
-    </button>
+      <input
+        {...nativeSwitchProps}
+        className="ios-haptic-switch"
+        type="checkbox"
+        tabIndex={-1}
+        aria-hidden="true"
+      />
+      <span className="control-button-text" aria-hidden="true">{label}</span>
+    </label>
   )
 }
 
@@ -1070,8 +1092,20 @@ export default function App() {
 
   useEffect(() => {
     const preventContextMenu = (event: MouseEvent) => event.preventDefault()
+    const preventLongPressSelection = (event: Event) => {
+      const target = event.target
+      if (target instanceof HTMLTextAreaElement) return
+      if (target instanceof HTMLInputElement && target.type !== 'checkbox') return
+      event.preventDefault()
+    }
     window.addEventListener('contextmenu', preventContextMenu, { capture: true })
-    return () => window.removeEventListener('contextmenu', preventContextMenu, true)
+    window.addEventListener('selectstart', preventLongPressSelection, { capture: true })
+    window.addEventListener('dragstart', preventLongPressSelection, { capture: true })
+    return () => {
+      window.removeEventListener('contextmenu', preventContextMenu, true)
+      window.removeEventListener('selectstart', preventLongPressSelection, true)
+      window.removeEventListener('dragstart', preventLongPressSelection, true)
+    }
   }, [])
 
   useEffect(() => {

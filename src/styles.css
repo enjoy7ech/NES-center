@@ -139,18 +139,21 @@ kbd { min-width: 28px; border: 1px solid var(--separator); border-bottom-color: 
 
 .side-controls { display: flex; align-items: center; justify-content: center; }
 .d-pad { display: grid; width: 126px; height: 126px; grid-template: repeat(3, 1fr) / repeat(3, 1fr); justify-self: start; }
-.d-pad button { z-index: 1; border: 0; color: var(--secondary); background: var(--surface); font-size: 16px; font-weight: 750; cursor: pointer; touch-action: none; }
+.d-pad .control-button { z-index: 1; border: 0; color: var(--secondary); background: var(--surface); font-size: 16px; font-weight: 750; cursor: pointer; touch-action: none; }
 .d-pad .control-button { min-width: 0; min-height: 0; }
-.d-pad button:first-child { grid-area: 1 / 2; border-radius: 8px 8px 0 0; }
-.d-pad button:nth-child(2) { grid-area: 2 / 1; border-radius: 8px 0 0 8px; }
-.d-pad button:nth-child(4) { grid-area: 2 / 3; border-radius: 0 8px 8px 0; }
-.d-pad button:nth-child(5) { grid-area: 3 / 2; border-radius: 0 0 8px 8px; }
-.d-pad button:active { color: var(--accent); background: var(--surface-elevated); }
+.d-pad .control-button:first-child { grid-area: 1 / 2; border-radius: 8px 8px 0 0; }
+.d-pad .control-button:nth-child(2) { grid-area: 2 / 1; border-radius: 8px 0 0 8px; }
+.d-pad .control-button:nth-child(4) { grid-area: 2 / 3; border-radius: 0 8px 8px 0; }
+.d-pad .control-button:nth-child(5) { grid-area: 3 / 2; border-radius: 0 0 8px 8px; }
+.d-pad .control-button:active { color: var(--accent); background: var(--surface-elevated); }
 .d-pad-center { grid-area: 2 / 2; background: var(--surface); }
 .center-controls, .action-controls { display: flex; align-items: center; gap: 10px; }
 .center-controls { justify-content: center; }
 .action-controls { justify-content: center; }
-.control-button { min-width: 58px; min-height: 44px; border: 0; border-radius: 999px; cursor: pointer; touch-action: none; }
+.control-button { position: relative; display: flex; min-width: 58px; min-height: 44px; align-items: center; justify-content: center; border: 0; border-radius: 999px; cursor: pointer; touch-action: none; -webkit-tap-highlight-color: transparent; }
+.control-button, .control-button * { -webkit-user-select: none !important; user-select: none !important; -webkit-touch-callout: none !important; -webkit-user-drag: none; }
+.ios-haptic-switch { position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%; margin: 0; opacity: .001; cursor: pointer; -webkit-appearance: auto; appearance: auto; }
+.control-button-text { pointer-events: none; }
 .utility-button { min-width: 68px; min-height: 32px; border-radius: 999px; color: var(--secondary); background: #090b0c; box-shadow: inset 0 0 0 1px rgba(255,255,255,.05); font-size: 9px; letter-spacing: .06em; }
 .action-button { min-width: 58px; min-height: 58px; color: #17130c; background: var(--accent); font-weight: 750; }
 .action-button:first-child { background: #ba6d65; }
@@ -328,12 +331,12 @@ kbd { min-width: 28px; border: 1px solid var(--separator); border-bottom-color: 
   .side-controls-left { grid-column: 1; grid-row: 3; }
   .side-controls-right { grid-column: 2; grid-row: 3; }
   .d-pad { width: clamp(104px, 31vw, 130px); height: clamp(104px, 31vw, 130px); filter: drop-shadow(0 5px 0 rgba(51,53,50,.32)); }
-  .d-pad button, .d-pad-center { background: #262b2b; }
-  .d-pad button { color: #8d9591; }
-  .d-pad button:first-child { border-radius: 6px 6px 1px 1px; }
-  .d-pad button:nth-child(2) { border-radius: 6px 1px 1px 6px; }
-  .d-pad button:nth-child(4) { border-radius: 1px 6px 6px 1px; }
-  .d-pad button:nth-child(5) { border-radius: 1px 1px 6px 6px; }
+  .d-pad .control-button, .d-pad-center { background: #262b2b; }
+  .d-pad .control-button { color: #8d9591; }
+  .d-pad .control-button:first-child { border-radius: 6px 6px 1px 1px; }
+  .d-pad .control-button:nth-child(2) { border-radius: 6px 1px 1px 6px; }
+  .d-pad .control-button:nth-child(4) { border-radius: 1px 6px 6px 1px; }
+  .d-pad .control-button:nth-child(5) { border-radius: 1px 1px 6px 6px; }
   .action-controls { position: relative; width: clamp(118px, 34vw, 142px); height: clamp(94px, 28vw, 116px); }
   .action-controls .action-button { position: absolute; min-width: clamp(50px, 14vw, 60px); min-height: clamp(50px, 14vw, 60px); border: 3px solid rgba(73,36,49,.34); color: #eadce1; background: #7e3150; box-shadow: inset 3px 3px 0 rgba(255,255,255,.1), 0 5px 0 #572139; font-size: 13px; }
   .action-controls .action-button:first-child { bottom: 5px; left: 5px; background: #71304d; }
