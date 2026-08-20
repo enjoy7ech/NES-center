@@ -1,0 +1,1124 @@
+import { useEffect, useRef, useState } from 'react'
+import { RetroArchAdapter } from './emulator/retroarchAdapter'
+import { inspectRom } from './emulator/rom'
+import type { CheatRule, ControllerButton, EmulatorSpeed, EmulatorStatus, SaveStateSlot } from './emulator/types'
+
+const buttons: Array<{ id: ControllerButton; label: string; className?: string }> = [
+  { id: 'select', label: 'SELECT', className: 'utility-button' },
+  { id: 'start', label: 'START', className: 'utility-button' },
+  { id: 'b', label: 'B', className: 'action-button' },
+  { id: 'a', label: 'A', className: 'action-button' },
+]
+
+const games = [
+  {
+    title: '重装机兵 SUPER HACK',
+    englishTitle: 'METAL MAX',
+    code: '7100750',
+    rom: '/ROMS/重装机兵-SUPER-HACK.nes',
+    accent: '#d26451',
+    cover: '/covers/metal-max.png',
+    available: true,
+  },
+  {
+    title: '吞食天地2 星云完美版 中文版',
+    englishTitle: 'DESTINY OF AN EMPEROR II',
+    code: 'CC5B0FAD',
+    rom: '/ROMS/吞食天地2-星云完美版-中文版.nes',
+    accent: '#b65b3f',
+    cover: '/covers/28620_7dd03b349c0d8059bef6d1942e6494c6.png',
+    available: true,
+  },
+  {
+    title: '三国志2 霸王的大陆',
+    englishTitle: 'SANGOKUSHI II',
+    code: '3A82C349',
+    rom: '/ROMS/三国志2-霸王的大陆.nes',
+    accent: '#d0a23d',
+    cover: '/covers/sangokushi2-bawang.png',
+    available: true,
+  },
+]
+
+type KeyboardAction = ControllerButton | 'quickSave' | 'quickLoad' | 'speedToggle' | 'coreMenu'
+type KeyboardBindings = Record<KeyboardAction, string>
+
+const keyboardBindingsKey = 'fc-center:keyboard-bindings'
+const defaultKeyboardBindings: KeyboardBindings = {
+  up: 'w', down: 's', left: 'a', right: 'd', b: 'q', a: 'e', select: ' ', start: 'Enter',
+  quickSave: 'F5', quickLoad: 'F8', speedToggle: 'x', coreMenu: 'F1',
+}
+const controllerBindingOrder: ControllerButton[] = ['up', 'down', 'left', 'right', 'b', 'a', 'select', 'start']
+const bindingOrder: KeyboardAction[] = [...controllerBindingOrder, 'quickSave', 'quickLoad', 'speedToggle', 'coreMenu']
+const bindingGroups: Array<{ title: string; hint: string; actions: KeyboardAction[] }> = [
+  { title: '游戏控制', hint: 'PLAYER 1', actions: controllerBindingOrder },
+  { title: '快捷功能', hint: 'SYSTEM', actions: ['quickSave', 'quickLoad', 'speedToggle', 'coreMenu'] },
+]
+
+function loadKeyboardBindings(): KeyboardBindings {
+  try {
+    const stored = localStorage.getItem(keyboardBindingsKey)
+    const saved = JSON.parse(stored ?? '{}') as Partial<KeyboardBindings>
+    const candidates: KeyboardBindings = { ...defaultKeyboardBindings }
+    for (const action of bindingOrder) {
+      if (typeof saved[action] === 'string' && saved[action]) {
+        candidates[action] = normalizeKeyboardKey(saved[action])
+      }
+    }
+    // Migrate former defaults, including F9 which conflicts with RetroArch's
+    // built-in mute shortcut, while retaining genuinely custom bindings.
+    if (saved.speedToggle === 'F9' || saved.speedToggle === 'F3') {
+      candidates.speedToggle = defaultKeyboardBindings.speedToggle
+    }
+    if (!stored && localStorage.getItem('fc-center:direction-preset') === 'arrows') {
+      Object.assign(candidates, { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' })
+    }
+
+    // Always return a complete, collision-free table. This repairs partial or
+    // legacy localStorage data before it can make one key trigger two actions.
+    const bindings = {} as KeyboardBindings
+    const usedKeys = new Set<string>()
+    for (const action of bindingOrder) {
+      const requested = candidates[action]
+      const fallback = defaultKeyboardBindings[action]
+      const key = !usedKeys.has(requested)
+        ? requested
+        : !usedKeys.has(fallback)
+          ? fallback
+          : Object.values(defaultKeyboardBindings).find(candidate => !usedKeys.has(candidate)) ?? fallback
+      bindings[action] = key
+      usedKeys.add(key)
+    }
+    localStorage.setItem(keyboardBindingsKey, JSON.stringify(bindings))
+    return bindings
+  } catch {
+    return { ...defaultKeyboardBindings }
+  }
+}
+
+function normalizeKeyboardKey(key: string) {
+  return key.length === 1 ? key.toLowerCase() : key
+}
+
+function displayKeyboardKey(key: string) {
+  const labels: Record<string, string> = { ' ': 'Space', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→' }
+  return labels[key] ?? (key.length === 1 ? key.toUpperCase() : key)
+}
+
+const controlLabels: Record<KeyboardAction, string> = {
+  up: '上',
+  down: '下',
+  left: '左',
+  right: '右',
+  select: '选择',
+  start: '开始',
+  b: 'B 键',
+  a: 'A 键',
+  quickSave: '快速存档',
+  quickLoad: '快速读档',
+  speedToggle: '倍速切换',
+  coreMenu: '内核菜单',
+}
+
+type ControlButtonProps = {
+  button: ControllerButton
+  label: string
+  className?: string
+  onInput: (button: ControllerButton, pressed: boolean) => void
+}
+
+function triggerHapticFeedback() {
+  if (!('vibrate' in navigator)) return
+  try {
+    navigator.vibrate(12)
+  } catch {
+    // Haptics are optional and can be blocked by the browser or device settings.
+  }
+}
+
+function ControlButton({ button, label, className = '', onInput }: ControlButtonProps) {
+  const release = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    onInput(button, false)
+  }
+
+  return (
+    <button
+      className={`control-button ${className}`}
+      aria-label={controlLabels[button]}
+      onPointerDown={event => {
+        event.preventDefault()
+        event.currentTarget.setPointerCapture(event.pointerId)
+        triggerHapticFeedback()
+        onInput(button, true)
+      }}
+      onPointerUp={release}
+      onPointerCancel={release}
+      onLostPointerCapture={() => onInput(button, false)}
+      onContextMenu={event => event.preventDefault()}
+    >
+      {label}
+    </button>
+  )
+}
+
+function HoldActionButton({
+  icon,
+  label,
+  disabled = false,
+  onPress,
+  onHold,
+}: {
+  icon: string
+  label: string
+  disabled?: boolean
+  onPress: () => void
+  onHold: () => void
+}) {
+  const timer = useRef<number | null>(null)
+  const [holding, setHolding] = useState(false)
+
+  useEffect(() => () => {
+    if (timer.current !== null) window.clearTimeout(timer.current)
+  }, [])
+
+  const cancelHold = () => {
+    if (timer.current !== null) window.clearTimeout(timer.current)
+    timer.current = null
+    setHolding(false)
+  }
+
+  return (
+    <button
+      type="button"
+      className={holding ? 'is-holding' : ''}
+      disabled={disabled}
+      aria-label={`${label}，短按选择槽位，长按一秒使用快速槽位`}
+      onPointerDown={event => {
+        if (disabled || event.button !== 0) return
+        event.preventDefault()
+        event.currentTarget.setPointerCapture(event.pointerId)
+        setHolding(true)
+        timer.current = window.setTimeout(() => {
+          timer.current = null
+          setHolding(false)
+          triggerHapticFeedback()
+          onHold()
+        }, 1000)
+      }}
+      onPointerUp={event => {
+        const shouldPress = timer.current !== null
+        cancelHold()
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+        if (shouldPress) onPress()
+      }}
+      onPointerCancel={cancelHold}
+      onLostPointerCapture={cancelHold}
+      onClick={event => {
+        // Keyboard-generated clicks have detail 0; pointer clicks are handled above.
+        if (event.detail === 0 && !disabled) onPress()
+      }}
+      onContextMenu={event => event.preventDefault()}
+    >
+      <span>{icon}</span>{label}
+    </button>
+  )
+}
+
+type GameTool = 'save' | 'load' | 'cheats'
+
+const saveSlots = [
+  { slot: -1, label: 'QUICK' },
+  ...Array.from({ length: 9 }, (_, index) => ({
+    slot: index,
+    label: `SLOT ${String(index + 1).padStart(2, '0')}`,
+  })),
+]
+const maxCheats = 16
+const gameSpeeds: EmulatorSpeed[] = [1, 2, 5]
+const gameGeniePattern = /^[APZLGITYEOXUKSVN]{6}(?:[APZLGITYEOXUKSVN]{2})?$/
+const rawCheatPattern = /^(?:[0-9A-F]{4}:[0-9A-F]{2}|[0-9A-F]{4}\?[0-9A-F]{2}:[0-9A-F]{2})$/
+const parCheatPattern = /^[0-9A-F]{8}$/
+
+function normalizeCheatCode(value: string) {
+  const parts = value.trim().toUpperCase().replace(/-/g, '').split(/[+,;._\s]+/).filter(Boolean)
+  if (!parts.length) return null
+  if (!parts.every(part => gameGeniePattern.test(part) || rawCheatPattern.test(part) || parCheatPattern.test(part))) {
+    return null
+  }
+  return parts.join('+')
+}
+
+async function loadBuiltInCheats(fileName: string): Promise<CheatRule[]> {
+  const romName = fileName.replace(/\.[^.]+$/, '')
+  const response = await fetch(`/cheat/${encodeURIComponent(romName)}.json`)
+  if (response.status === 404) return []
+  if (!response.ok) throw new Error(`金手指文件请求失败：${response.status}`)
+  const payload = await response.json() as {
+    cheats?: Array<{ id?: unknown; name?: unknown; code?: unknown; enabled?: unknown }>
+  }
+  if (!Array.isArray(payload.cheats)) return []
+  return payload.cheats.flatMap((item, index) => {
+    if (typeof item.code !== 'string') return []
+    const code = normalizeCheatCode(item.code)
+    if (!code) return []
+    return [{
+      id: `builtin:${romName}:${typeof item.id === 'string' && item.id ? item.id : index}`,
+      name: typeof item.name === 'string' ? item.name : undefined,
+      code,
+      enabled: item.enabled === true,
+      builtIn: true,
+    }]
+  })
+}
+
+function mergeBuiltInCheats(saved: CheatRule[], builtIns: CheatRule[]) {
+  const builtInIds = new Set(builtIns.map(cheat => cheat.id))
+  const builtInCodes = new Set(builtIns.map(cheat => cheat.code))
+  const mergedBuiltIns = builtIns.map(cheat => {
+    const previous = saved.find(item => item.id === cheat.id || item.code === cheat.code)
+    return previous ? { ...cheat, enabled: previous.enabled } : cheat
+  })
+  const custom = saved.filter(cheat => !cheat.builtIn && !builtInIds.has(cheat.id) && !builtInCodes.has(cheat.code))
+  return [...mergedBuiltIns, ...custom].slice(0, maxCheats)
+}
+
+function formatSaveTime(timestamp: number) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(timestamp)
+}
+
+function SaveSlotCard({
+  slot,
+  label,
+  saved,
+  busy,
+  disabled,
+  isSaveMode,
+  onActivate,
+  onDelete,
+}: {
+  slot: number
+  label: string
+  saved?: SaveStateSlot
+  busy: boolean
+  disabled: boolean
+  isSaveMode: boolean
+  onActivate: () => void
+  onDelete: () => void
+}) {
+  const holdTimer = useRef<number | null>(null)
+  const suppressClick = useRef(false)
+  const [showDelete, setShowDelete] = useState(false)
+
+  const clearHold = () => {
+    if (holdTimer.current !== null) window.clearTimeout(holdTimer.current)
+    holdTimer.current = null
+  }
+
+  useEffect(() => clearHold, [])
+
+  return (
+    <div className={`save-slot${saved ? ' is-filled' : ''}${slot === -1 ? ' is-quick-slot' : ''}${disabled ? ' is-disabled' : ''}${showDelete ? ' is-delete-visible' : ''}`}>
+      <button
+        type="button"
+        className="save-slot-main"
+        disabled={disabled}
+        onPointerDown={event => {
+          if (!saved || disabled || event.button !== 0) return
+          suppressClick.current = false
+          holdTimer.current = window.setTimeout(() => {
+            holdTimer.current = null
+            suppressClick.current = true
+            setShowDelete(true)
+            triggerHapticFeedback()
+          }, 650)
+        }}
+        onPointerUp={() => {
+          const wasLongPress = suppressClick.current
+          clearHold()
+          suppressClick.current = false
+          if (!wasLongPress) {
+            setShowDelete(false)
+            onActivate()
+          }
+        }}
+        onPointerCancel={() => {
+          clearHold()
+          suppressClick.current = false
+        }}
+        onPointerLeave={() => {
+          if (!suppressClick.current) clearHold()
+        }}
+        onClick={event => {
+          // Pointer activation is handled on pointerup. Keep native click only
+          // for keyboard accessibility to prevent a second slot action.
+          if (event.detail !== 0) {
+            event.preventDefault()
+          } else {
+            setShowDelete(false)
+            onActivate()
+          }
+        }}
+      >
+        <span className="save-slot-number">{label}</span>
+        <span className="save-slot-preview">
+          {saved?.thumbnail ? <img src={saved.thumbnail} alt="" /> : <i aria-hidden="true" />}
+        </span>
+        <span className="save-slot-time">
+          {busy ? (isSaveMode ? '保存中…' : '处理中…') : saved ? formatSaveTime(saved.updatedAt) : '空槽位'}
+        </span>
+      </button>
+      {showDelete && saved && (
+        <button
+          type="button"
+          className="save-slot-delete"
+          disabled={busy}
+          onClick={() => {
+            setShowDelete(false)
+            onDelete()
+          }}
+        >删除</button>
+      )}
+    </div>
+  )
+}
+
+function GameToolsDialog({
+  mode,
+  slots,
+  busySlot,
+  cheats,
+  onSave,
+  onLoad,
+  onDelete,
+  onAddCheat,
+  onToggleCheat,
+  onRemoveCheat,
+  onClose,
+}: {
+  mode: GameTool
+  slots: SaveStateSlot[]
+  busySlot: number | null
+  cheats: CheatRule[]
+  onSave: (slot: number) => void
+  onLoad: (slot: number) => void
+  onDelete: (slot: number) => void
+  onAddCheat: (code: string) => void
+  onToggleCheat: (id: string) => void
+  onRemoveCheat: (id: string) => void
+  onClose: () => void
+}) {
+  const [cheatCode, setCheatCode] = useState('')
+  const [cheatError, setCheatError] = useState('')
+  const isSaveMode = mode === 'save'
+  const title = isSaveMode ? '存档' : mode === 'load' ? '读档' : '金手指'
+
+  return (
+    <div className="pixel-dialog-backdrop" onPointerDown={event => {
+      if (event.target === event.currentTarget) onClose()
+    }}>
+      <section className="pixel-dialog" role="dialog" aria-modal="true" aria-labelledby="game-tool-title">
+        <header className="pixel-dialog-heading">
+          <div>
+            <span>8-BIT SYSTEM</span>
+            <h2 id="game-tool-title">{title}</h2>
+          </div>
+          <button type="button" aria-label={`关闭${title}`} onClick={onClose}>×</button>
+        </header>
+
+        {mode !== 'cheats' ? (
+          <div className="save-slot-grid" aria-label="9 个普通槽位和 1 个快速槽位">
+            {saveSlots.map(({ slot, label }) => {
+              const saved = slots.find(item => item.slot === slot)
+              const isBusy = busySlot === slot
+              return <SaveSlotCard
+                key={slot}
+                slot={slot}
+                label={label}
+                saved={saved}
+                busy={isBusy}
+                disabled={busySlot !== null || (!isSaveMode && !saved)}
+                isSaveMode={isSaveMode}
+                onActivate={() => isSaveMode ? onSave(slot) : onLoad(slot)}
+                onDelete={() => onDelete(slot)}
+              />
+            })}
+          </div>
+        ) : (
+          <div className="pixel-cheat-panel">
+            <form className="pixel-cheat-form" onSubmit={event => {
+              event.preventDefault()
+              const normalized = normalizeCheatCode(cheatCode)
+              if (!normalized) {
+                setCheatError('代码格式无效，请输入 Game Genie、PAR 或 xxxx:xx')
+                return
+              }
+              onAddCheat(normalized)
+              setCheatCode('')
+              setCheatError('')
+            }}>
+              <label htmlFor="cheat-code">输入 Game Genie / PAR 代码</label>
+              <div>
+                <input
+                  id="cheat-code"
+                  value={cheatCode}
+                  maxLength={32}
+                  disabled={cheats.length >= maxCheats}
+                  placeholder="例如 SXIOPO"
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-invalid={Boolean(cheatError)}
+                  aria-describedby={cheatError ? 'cheat-code-error' : undefined}
+                  onChange={event => {
+                    setCheatCode(event.target.value.toUpperCase())
+                    if (cheatError) setCheatError('')
+                  }}
+                />
+                <button type="submit" disabled={cheats.length >= maxCheats || !cheatCode.trim()}>添加</button>
+              </div>
+              {cheatError && <p id="cheat-code-error" className="pixel-cheat-error" role="alert">{cheatError}</p>}
+            </form>
+            <div className="pixel-cheat-list" aria-label="金手指列表">
+              {cheats.length === 0 ? (
+                <div className="pixel-empty-list">尚未添加代码</div>
+              ) : cheats.map(cheat => (
+                <div className="pixel-cheat-row" key={cheat.id}>
+                  <button
+                    type="button"
+                    className={cheat.enabled ? 'is-enabled' : ''}
+                    aria-pressed={cheat.enabled}
+                    onClick={() => onToggleCheat(cheat.id)}
+                  >{cheat.enabled ? 'ON' : 'OFF'}</button>
+                  <span className="pixel-cheat-code">
+                    {cheat.name && <strong>{cheat.name}</strong>}
+                    <code>{cheat.code.replace(/\+/g, ' · ')}</code>
+                  </span>
+                  {cheat.builtIn
+                    ? <span className="pixel-cheat-built-in">内置</span>
+                    : <button type="button" aria-label={`删除 ${cheat.code}`} onClick={() => onRemoveCheat(cheat.id)}>×</button>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <footer className="pixel-dialog-footer">
+          <button type="button" onClick={onClose}>返回游戏</button>
+        </footer>
+      </section>
+    </div>
+  )
+}
+
+function HomePage({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const [activeGame, setActiveGame] = useState(0)
+
+  const moveCarousel = (direction: number) => {
+    setActiveGame(current => (current + direction + games.length) % games.length)
+  }
+
+  const getOffset = (index: number) => {
+    let offset = index - activeGame
+    if (offset > games.length / 2) offset -= games.length
+    if (offset < -games.length / 2) offset += games.length
+    return offset
+  }
+
+  return (
+    <main
+      className="home-shell"
+      onKeyDown={event => {
+        if (event.key === 'ArrowLeft') moveCarousel(-1)
+        if (event.key === 'ArrowRight') moveCarousel(1)
+      }}
+    >
+      <div className="retro-atmosphere" aria-hidden="true">
+        <div className="retro-grid" />
+        <div className="retro-scan" />
+        {Array.from({ length: 18 }, (_, index) => (
+          <span
+            className="pixel-star"
+            key={index}
+            style={{
+              '--star-x': `${(index * 37 + 11) % 96}%`,
+              '--star-y': `${(index * 53 + 7) % 84}%`,
+              '--star-delay': `${(index % 6) * -.7}s`,
+              '--star-size': `${index % 3 + 2}px`,
+            } as React.CSSProperties}
+          />
+        ))}
+        <div className="nes-ornament ornament-left">
+          <span className="mini-dpad mini-dpad-horizontal" />
+          <span className="mini-dpad mini-dpad-vertical" />
+        </div>
+        <div className="nes-ornament ornament-right">
+          <span />
+          <span />
+        </div>
+      </div>
+      <section className="cartridge-carousel" aria-label="游戏卡带轮播">
+        <button className="carousel-arrow carousel-arrow-left" aria-label="上一张卡带" onClick={() => moveCarousel(-1)}>←</button>
+        <div className="carousel-stage">
+          {games.map((game, index) => {
+            const offset = getOffset(index)
+            const distance = Math.abs(offset)
+            const isActive = index === activeGame
+            return (
+              <button
+                className={`carousel-item${isActive ? ' is-active' : ''}${distance > 1 ? ' is-far' : ''}`}
+                style={{
+                  '--offset': offset,
+                  '--depth': Math.max(.7, 1 - distance * .14),
+                  '--item-z': games.length - distance,
+                  '--item-zpos': `${distance * -120}px`,
+                } as React.CSSProperties}
+                key={game.code}
+                aria-label={isActive && game.available ? `游玩${game.title}` : `选择${game.title}`}
+                aria-current={isActive ? 'true' : undefined}
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => {
+                  if (!isActive) {
+                    setActiveGame(index)
+                    return
+                  }
+                  if (game.available && game.rom) window.location.href = `/?rom=${encodeURIComponent(game.rom)}`
+                }}
+              >
+                <article className="cartridge" style={{ '--cartridge-accent': game.accent } as React.CSSProperties}>
+                  <div className="cartridge-grip" aria-hidden="true">
+                    {Array.from({ length: 7 }, (_, gripIndex) => <span key={gripIndex} />)}
+                  </div>
+                  <span className="cartridge-rail cartridge-rail-left" aria-hidden="true" />
+                  <span className="cartridge-rail cartridge-rail-right" aria-hidden="true" />
+                  <span className="cartridge-screw cartridge-screw-left" aria-hidden="true" />
+                  <span className="cartridge-screw cartridge-screw-right" aria-hidden="true" />
+                  <div className="cartridge-label">
+                    {game.cover ? (
+                      <img src={game.cover} alt="" />
+                    ) : (
+                      <div className="cover-placeholder" aria-hidden="true">
+                        <span className="cover-pixels" />
+                        <span className="cover-system">8-BIT / FC</span>
+                        <span className="cover-code">{game.code}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="cartridge-notch" aria-hidden="true" />
+                </article>
+              </button>
+            )
+          })}
+        </div>
+        <button className="carousel-arrow carousel-arrow-right" aria-label="下一张卡带" onClick={() => moveCarousel(1)}>→</button>
+        <div className="carousel-caption" aria-live="polite">
+          <strong>{games[activeGame].title}</strong>
+          <span>{games[activeGame].available ? '点击卡带开始游戏' : '卡带未安装'}</span>
+          <span>{activeGame + 1} / {games.length}</span>
+        </div>
+      </section>
+      <button className="home-settings-button" aria-label="键位设置" onClick={onOpenSettings}>键位</button>
+    </main>
+  )
+}
+
+function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings }) {
+  const emulatorHost = useRef<HTMLDivElement>(null)
+  const adapter = useRef<RetroArchAdapter | null>(null)
+  const [status, setStatus] = useState<EmulatorStatus>('idle')
+  const [error, setError] = useState('')
+  const [activeTool, setActiveTool] = useState<GameTool | null>(null)
+  const [saveStateSlots, setSaveStateSlots] = useState<SaveStateSlot[]>([])
+  const [busySlot, setBusySlot] = useState<number | null>(null)
+  const [quickBusy, setQuickBusy] = useState(false)
+  const [gameSpeed, setGameSpeed] = useState<EmulatorSpeed>(1)
+  const romPath = new URLSearchParams(window.location.search).get('rom') ?? 'game'
+  const cheatStorageKey = `fc-center:cheats:${romPath}`
+  const [cheats, setCheats] = useState<CheatRule[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(cheatStorageKey) ?? '[]') as CheatRule[]
+    } catch {
+      return []
+    }
+  })
+
+  useEffect(() => {
+    if (!emulatorHost.current) return
+    adapter.current = new RetroArchAdapter(emulatorHost.current, {
+      onStatus: next => setStatus(next),
+      onError: message => setError(message),
+    })
+    return () => adapter.current?.destroy()
+  }, [])
+
+  useEffect(() => {
+    adapter.current?.setCheats(cheats)
+    localStorage.setItem(cheatStorageKey, JSON.stringify(cheats))
+  }, [cheatStorageKey, cheats])
+
+  useEffect(() => {
+    if (!activeTool) return
+    adapter.current?.releaseInputs()
+  }, [activeTool])
+
+  useEffect(() => {
+    const releaseInputs = () => adapter.current?.releaseInputs()
+    const keyToButton = new Map(controllerBindingOrder.map(button => [keyboardBindings[button], button] as const))
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!event.isTrusted) return
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return
+      const button = keyToButton.get(normalizeKeyboardKey(event.key))
+      if (button) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        adapter.current?.setInput({ button, pressed: true })
+      }
+    }
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (!event.isTrusted) return
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return
+      const button = keyToButton.get(normalizeKeyboardKey(event.key))
+      if (!button) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      adapter.current?.setInput({ button, pressed: false })
+    }
+    window.addEventListener('blur', releaseInputs)
+    document.addEventListener('visibilitychange', releaseInputs)
+    window.addEventListener('keydown', handleKeyDown, { capture: true, passive: false })
+    window.addEventListener('keyup', handleKeyUp, { capture: true, passive: false })
+    return () => {
+      releaseInputs()
+      window.removeEventListener('blur', releaseInputs)
+      document.removeEventListener('visibilitychange', releaseInputs)
+      window.removeEventListener('keydown', handleKeyDown, true)
+      window.removeEventListener('keyup', handleKeyUp, true)
+    }
+  }, [keyboardBindings])
+
+  const startRom = (buffer: ArrayBuffer, fileName: string) => {
+    try {
+      inspectRom(buffer)
+      setError('')
+      adapter.current?.loadRom(buffer, fileName)
+    } catch (reason) {
+      setStatus('error')
+      setError(reason instanceof Error ? reason.message : 'ROM 校验失败。')
+    }
+  }
+
+  const sendButton = (button: ControllerButton, pressed: boolean) => {
+    adapter.current?.setInput({ button, pressed })
+  }
+
+  const openTool = (tool: GameTool) => {
+    if (status !== 'running' && status !== 'paused') {
+      setError('请等待游戏载入完成。')
+      return
+    }
+    setActiveTool(tool)
+    if (tool !== 'cheats') {
+      void adapter.current?.listSaveStates()
+        .then(setSaveStateSlots)
+        .catch(reason => setError(reason instanceof Error ? reason.message : '读取槽位失败。'))
+    }
+  }
+
+  const useQuickSlot = (mode: 'save' | 'load') => {
+    if (status !== 'running' && status !== 'paused') {
+      setError('请等待游戏载入完成。')
+      return
+    }
+    if (quickBusy) return
+    setQuickBusy(true)
+    const action = mode === 'save' ? adapter.current?.saveState(-1) : adapter.current?.loadState(-1)
+    if (!action) {
+      setQuickBusy(false)
+      return
+    }
+    void action
+      .then(saved => {
+        if (mode === 'load' && !saved) {
+          setError('快速槽位还没有存档。')
+          return
+        }
+        setError('')
+        triggerHapticFeedback()
+      })
+      .catch(reason => setError(reason instanceof Error ? reason.message : `${mode === 'save' ? '存档' : '读档'}失败`))
+      .finally(() => setQuickBusy(false))
+  }
+
+  const cycleGameSpeed = () => {
+    if (status !== 'running' && status !== 'paused') {
+      setError('请等待游戏载入完成。')
+      return
+    }
+    const currentIndex = gameSpeeds.indexOf(gameSpeed)
+    const nextSpeed = gameSpeeds[(currentIndex + 1) % gameSpeeds.length]
+    if (!adapter.current?.setSpeed(nextSpeed)) return
+    setGameSpeed(nextSpeed)
+    setError('')
+    triggerHapticFeedback()
+  }
+
+  useEffect(() => {
+    const handleQuickAction = (event: KeyboardEvent) => {
+      if (!event.isTrusted || event.repeat) return
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return
+      const key = normalizeKeyboardKey(event.key)
+      const mode = key === keyboardBindings.quickSave ? 'save' : key === keyboardBindings.quickLoad ? 'load' : null
+      const isSpeedToggle = key === keyboardBindings.speedToggle
+      const isCoreMenu = key === keyboardBindings.coreMenu
+      if (!mode && !isSpeedToggle && !isCoreMenu) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      if (isCoreMenu) adapter.current?.toggleMenu()
+      else if (isSpeedToggle) cycleGameSpeed()
+      else if (mode) useQuickSlot(mode)
+    }
+    const blockQuickActionKeyUp = (event: KeyboardEvent) => {
+      const key = normalizeKeyboardKey(event.key)
+      if (
+        key !== keyboardBindings.quickSave
+        && key !== keyboardBindings.quickLoad
+        && key !== keyboardBindings.speedToggle
+        && key !== keyboardBindings.coreMenu
+      ) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+    }
+    window.addEventListener('keydown', handleQuickAction, true)
+    window.addEventListener('keyup', blockQuickActionKeyUp, true)
+    return () => {
+      window.removeEventListener('keydown', handleQuickAction, true)
+      window.removeEventListener('keyup', blockQuickActionKeyUp, true)
+    }
+  }, [gameSpeed, keyboardBindings.coreMenu, keyboardBindings.quickLoad, keyboardBindings.quickSave, keyboardBindings.speedToggle, quickBusy, status])
+
+  const saveToSlot = (slot: number) => {
+    setBusySlot(slot)
+    void adapter.current?.saveState(slot)
+      .then(saved => {
+        if (!saved) return
+        setSaveStateSlots(current => [...current.filter(item => item.slot !== slot), saved].sort((a, b) => a.slot - b.slot))
+        setError('')
+        triggerHapticFeedback()
+      })
+      .catch(reason => setError(reason instanceof Error ? reason.message : '保存失败。'))
+      .finally(() => setBusySlot(null))
+  }
+
+  const loadFromSlot = (slot: number) => {
+    setBusySlot(slot)
+    void adapter.current?.loadState(slot)
+      .then(saved => {
+        if (!saved) setError('该槽位没有存档。')
+        else setError('')
+        if (saved) triggerHapticFeedback()
+      })
+      .catch(reason => setError(reason instanceof Error ? reason.message : '读取失败。'))
+      .finally(() => setBusySlot(null))
+  }
+
+  const deleteSlot = (slot: number) => {
+    setBusySlot(slot)
+    void adapter.current?.deleteState(slot)
+      .then(() => {
+        setSaveStateSlots(current => current.filter(item => item.slot !== slot))
+        setError('')
+        triggerHapticFeedback()
+      })
+      .catch(reason => setError(reason instanceof Error ? reason.message : '删除存档失败。'))
+      .finally(() => setBusySlot(null))
+  }
+
+  const updateCheats = (next: CheatRule[]) => {
+    setCheats(next)
+    triggerHapticFeedback()
+  }
+
+  useEffect(() => {
+    const romPath = new URLSearchParams(window.location.search).get('rom')
+    if (!romPath || !romPath.startsWith('/')) return
+    const fileName = romPath.split('/').pop() ?? 'test.nes'
+    setError('正在加载内置测试 ROM。')
+    const romRequest = fetch(romPath).then(response => {
+      if (!response.ok) throw new Error(`ROM 请求失败：${response.status}`)
+      return response.arrayBuffer()
+    })
+    const cheatRequest = loadBuiltInCheats(fileName).catch(reason => {
+      console.warn(reason instanceof Error ? reason.message : '内置金手指加载失败。')
+      return []
+    })
+    void Promise.all([romRequest, cheatRequest])
+      .then(([buffer, builtIns]) => {
+        const mergedCheats = mergeBuiltInCheats(cheats, builtIns)
+        setCheats(mergedCheats)
+        adapter.current?.setCheats(mergedCheats)
+        startRom(buffer, fileName)
+      })
+      .catch(reason => {
+        setStatus('error')
+        setError(reason instanceof Error ? reason.message : '内置测试 ROM 加载失败。')
+      })
+  }, [])
+
+  return (
+    <main className="app-shell">
+      <section className="console" aria-label="FC 模拟器">
+        <div className="side-controls side-controls-left">
+          <div className="d-pad" aria-label="方向键">
+            <ControlButton button="up" label="↑" onInput={sendButton} />
+            <ControlButton button="left" label="←" onInput={sendButton} />
+            <span className="d-pad-center" />
+            <ControlButton button="right" label="→" onInput={sendButton} />
+            <ControlButton button="down" label="↓" onInput={sendButton} />
+          </div>
+        </div>
+
+        <div className="game-column">
+          <nav className="quick-tools" aria-label="游戏快捷功能">
+            <HoldActionButton
+              icon="▣"
+              label="存档"
+              disabled={quickBusy}
+              onPress={() => openTool('save')}
+              onHold={() => useQuickSlot('save')}
+            />
+            <HoldActionButton
+              icon="▶"
+              label="读档"
+              disabled={quickBusy}
+              onPress={() => openTool('load')}
+              onHold={() => useQuickSlot('load')}
+            />
+            <button
+              type="button"
+              className={gameSpeed > 1 ? 'is-speed-active' : ''}
+              aria-pressed={gameSpeed > 1}
+              onClick={cycleGameSpeed}
+            ><span>»</span>倍速 {gameSpeed}×</button>
+            <button type="button" onClick={() => openTool('cheats')}><span>★</span>金手指</button>
+          </nav>
+          <div className="screen-wrap">
+            <div ref={emulatorHost} className="emulator-host">
+              <div className="empty-screen">
+                <span className="signal-dot" />
+                <strong>准备好开始</strong>
+                <span>等待游戏载入</span>
+              </div>
+            </div>
+          </div>
+          <div className="center-controls">
+            {buttons.slice(0, 2).map(button => (
+              <ControlButton
+                key={button.id}
+                button={button.id}
+                label={button.label}
+                className={button.className}
+                onInput={sendButton}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="side-controls side-controls-right">
+          <div className="action-controls">
+            {buttons.slice(2).map(button => (
+              <ControlButton
+                key={button.id}
+                button={button.id}
+                label={button.label}
+                className={button.className}
+                onInput={sendButton}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {error && <div className="notice notice-error" role="alert">{error}</div>}
+      {activeTool && (
+        <GameToolsDialog
+          mode={activeTool}
+          slots={saveStateSlots}
+          busySlot={busySlot}
+          cheats={cheats}
+          onSave={saveToSlot}
+          onLoad={loadFromSlot}
+          onDelete={deleteSlot}
+          onAddCheat={code => {
+            const normalized = normalizeCheatCode(code)
+            if (!normalized || cheats.some(cheat => cheat.code === normalized) || cheats.length >= maxCheats) return
+            updateCheats([...cheats, { id: crypto.randomUUID(), code: normalized, enabled: true }])
+          }}
+          onToggleCheat={id => updateCheats(cheats.map(cheat => cheat.id === id ? { ...cheat, enabled: !cheat.enabled } : cheat))}
+          onRemoveCheat={id => updateCheats(cheats.filter(cheat => cheat.id !== id))}
+          onClose={() => setActiveTool(null)}
+        />
+      )}
+    </main>
+  )
+}
+
+function KeyboardSettings({
+  bindings,
+  onBind,
+  onReset,
+  onClose,
+}: {
+  bindings: KeyboardBindings
+  onBind: (button: KeyboardAction, key: string) => void
+  onReset: () => void
+  onClose: () => void
+}) {
+  const [capturing, setCapturing] = useState<KeyboardAction | null>(null)
+  const [captureError, setCaptureError] = useState('')
+
+  useEffect(() => {
+    if (!capturing) return
+    const captureKey = (event: KeyboardEvent) => {
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      if (event.repeat) return
+      if (event.key === 'Escape') {
+        setCapturing(null)
+        setCaptureError('')
+        return
+      }
+      const key = normalizeKeyboardKey(event.key)
+      if (key === 'p') {
+        setCaptureError('P 键保留用于打开设置')
+        return
+      }
+      onBind(capturing, key)
+      setCapturing(null)
+      setCaptureError('')
+    }
+    window.addEventListener('keydown', captureKey, true)
+    return () => window.removeEventListener('keydown', captureKey, true)
+  }, [capturing, onBind])
+
+  return (
+    <div className="keyboard-settings-backdrop" onPointerDown={event => {
+      if (event.target === event.currentTarget) onClose()
+    }}>
+      <section className="keyboard-settings" role="dialog" aria-modal="true" aria-labelledby="keyboard-settings-title">
+        <div className="keyboard-settings-heading">
+          <div>
+            <span>PLAYER 1</span>
+            <h2 id="keyboard-settings-title">键位设置</h2>
+          </div>
+          <button aria-label="关闭键位设置" onClick={onClose}>×</button>
+        </div>
+        <div className="binding-sections">
+          {bindingGroups.map(group => (
+            <section className="binding-section" key={group.title} aria-label={group.title}>
+              <div className="binding-section-heading">
+                <h3>{group.title}</h3>
+                <span>{group.hint}</span>
+              </div>
+              <div className="binding-grid">
+                {group.actions.map(button => (
+                  <button
+                    className={capturing === button ? 'is-capturing' : ''}
+                    key={button}
+                    onClick={() => {
+                      setCapturing(button)
+                      setCaptureError('')
+                    }}
+                  >
+                    <span>{controlLabels[button]}</span>
+                    <kbd>{capturing === button ? '按新键…' : displayKeyboardKey(bindings[button])}</kbd>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+        <div className="keyboard-settings-footer">
+          <p>{captureError || (capturing ? '按下新按键，Esc 取消' : '点击任意键位后按下新按键')}</p>
+          <button onClick={() => {
+            onReset()
+            setCapturing(null)
+            setCaptureError('')
+          }}>恢复默认</button>
+        </div>
+        <p>重复键会自动交换；<kbd>P</kbd> 保留用于打开设置。</p>
+      </section>
+    </div>
+  )
+}
+
+export default function App() {
+  const romPath = new URLSearchParams(window.location.search).get('rom')
+  const [keyboardBindings, setKeyboardBindings] = useState<KeyboardBindings>(loadKeyboardBindings)
+  const [showKeyboardSettings, setShowKeyboardSettings] = useState(false)
+
+  useEffect(() => {
+    if (!romPath) return
+    // Reload the complete mapping table whenever a game page is entered.
+    setKeyboardBindings(loadKeyboardBindings())
+  }, [romPath])
+
+  useEffect(() => {
+    const preventContextMenu = (event: MouseEvent) => event.preventDefault()
+    window.addEventListener('contextmenu', preventContextMenu, { capture: true })
+    return () => window.removeEventListener('contextmenu', preventContextMenu, true)
+  }, [])
+
+  useEffect(() => {
+    const toggleSettings = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'p' || event.repeat) return
+      if (document.querySelector('.binding-grid .is-capturing')) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      setShowKeyboardSettings(value => !value)
+    }
+    const blockSettingsKeyUp = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'p') return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+    }
+    window.addEventListener('keydown', toggleSettings, true)
+    window.addEventListener('keyup', blockSettingsKeyUp, true)
+    return () => {
+      window.removeEventListener('keydown', toggleSettings, true)
+      window.removeEventListener('keyup', blockSettingsKeyUp, true)
+    }
+  }, [])
+
+  const saveKeyboardBindings = (bindings: KeyboardBindings) => {
+    localStorage.setItem(keyboardBindingsKey, JSON.stringify(bindings))
+    // Read back through the same validation path so saved adjustments and
+    // startup mappings can never diverge.
+    setKeyboardBindings(loadKeyboardBindings())
+  }
+
+  const bindKeyboardKey = (button: KeyboardAction, key: string) => {
+    const next = { ...keyboardBindings }
+    const previousKey = next[button]
+    const conflictingButton = bindingOrder.find(candidate => candidate !== button && next[candidate] === key)
+    next[button] = key
+    if (conflictingButton) next[conflictingButton] = previousKey
+    saveKeyboardBindings(next)
+  }
+
+  return (
+    <>
+      {romPath
+        ? <EmulatorPage keyboardBindings={keyboardBindings} />
+        : <HomePage onOpenSettings={() => setShowKeyboardSettings(true)} />}
+      {showKeyboardSettings && (
+        <KeyboardSettings
+          bindings={keyboardBindings}
+          onBind={bindKeyboardKey}
+          onReset={() => saveKeyboardBindings({ ...defaultKeyboardBindings })}
+          onClose={() => setShowKeyboardSettings(false)}
+        />
+      )}
+    </>
+  )
+}

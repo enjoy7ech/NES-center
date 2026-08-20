@@ -1,0 +1,77 @@
+{
+  "game": "吞食天地2 星云完美版 中文版",
+  "cheats": [
+    {
+      "id": "no-encounters",
+      "name": "不遇敌",
+      "code": "008D:00",
+      "enabled": false
+    },
+    {
+      "id": "experience-9999999",
+      "name": "经验 9,999,999",
+      "code": "6028:7F+6029:96+602A:98",
+      "enabled": false
+    },
+    {
+      "id": "level-99",
+      "name": "等级 99",
+      "code": "602B:63",
+      "enabled": false
+    },
+    {
+      "id": "money-9999999",
+      "name": "金钱 9,999,999",
+      "code": "602C:7F+602D:96+602E:98",
+      "enabled": false
+    },
+    {
+      "id": "sp-999",
+      "name": "SP 999",
+      "code": "676A:E7+676B:03",
+      "enabled": false
+    },
+    {
+      "id": "max-sp-999",
+      "name": "最大 SP 999",
+      "code": "0072:E7+0073:03",
+      "enabled": false
+    },
+    {
+      "id": "party-troops-99999",
+      "name": "全员兵力 99,999",
+      "code": "662D:9F+662E:86+662F:01+6630:9F+6631:86+6632:01+6633:9F+6634:86+6635:01+6636:9F+6637:86+6638:01+6639:9F+663A:86+663B:01+663C:9F+663D:86+663E:01+663F:9F+6640:86+6641:01",
+      "enabled": false
+    },
+    {
+      "id": "party-max-troops-99999",
+      "name": "全员兵力上限 99,999",
+      "code": "6651:9F+6652:86+6653:01+6654:9F+6655:86+6656:01+6657:9F+6658:86+6659:01+665A:9F+665B:86+665C:01+665D:9F+665E:86+665F:01+6660:9F+6661:86+6662:01+6663:9F+6664:86+6665:01",
+      "enabled": false
+    },
+    {
+      "id": "party-strength-255",
+      "name": "全员武力 255",
+      "code": "6675:FF+6676:FF+6677:FF+6678:FF+6679:FF+667A:FF+667B:FF",
+      "enabled": false
+    },
+    {
+      "id": "party-intelligence-255",
+      "name": "全员智力 255",
+      "code": "6681:FF+6682:FF+6683:FF+6684:FF+6685:FF+6686:FF+6687:FF",
+      "enabled": false
+    },
+    {
+      "id": "party-speed-255",
+      "name": "全员速度 255",
+      "code": "668D:FF+668E:FF+668F:FF+6690:FF+6691:FF+6692:FF+6693:FF",
+      "enabled": false
+    },
+    {
+      "id": "party-defense-255",
+      "name": "全员防御 255",
+      "code": "66BD:FF+66BE:FF+66BF:FF+66C0:FF+66C1:FF+66C2:FF+66C3:FF",
+      "enabled": false
+    }
+  ]
+}

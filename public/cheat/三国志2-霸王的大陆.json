@@ -1,0 +1,83 @@
+{
+  "game": "三国志2 霸王的大陆",
+  "cheats": [
+    {
+      "id": "orders-9",
+      "name": "命令书固定 9",
+      "code": "6F05:09",
+      "enabled": false
+    },
+    {
+      "id": "mobility-99",
+      "name": "机动力 99（敌方回合需关闭）",
+      "code": "0505:63",
+      "enabled": false
+    },
+    {
+      "id": "battle-food-9999",
+      "name": "战斗兵粮 9,999",
+      "code": "0524:0F+0525:27",
+      "enabled": false
+    },
+    {
+      "id": "battle-money-9999",
+      "name": "战斗金钱 9,999",
+      "code": "0528:0F+0529:27",
+      "enabled": false
+    },
+    {
+      "id": "left-tactics",
+      "name": "左侧战术无限",
+      "code": "0572:FF",
+      "enabled": false
+    },
+    {
+      "id": "right-tactics",
+      "name": "右侧战术无限",
+      "code": "0573:FF",
+      "enabled": false
+    },
+    {
+      "id": "duel-left-hp-99",
+      "name": "单挑左侧体力 99",
+      "code": "04B1:63",
+      "enabled": false
+    },
+    {
+      "id": "duel-right-hp-99",
+      "name": "单挑右侧体力 99",
+      "code": "04B2:63",
+      "enabled": false
+    },
+    {
+      "id": "battle-left-general-hp-99",
+      "name": "战斗左侧主将体力 99",
+      "code": "05AC:63",
+      "enabled": false
+    },
+    {
+      "id": "battle-right-general-hp-99",
+      "name": "战斗右侧主将体力 99",
+      "code": "05B7:63",
+      "enabled": false
+    },
+    {
+      "id": "liu-bei-max",
+      "name": "刘备五维 99／兵力 9,999",
+      "code": "6E28:63+6E29:63+6E2A:63+6E2B:63+6E2C:63+6E34:0F+6E35:27",
+      "enabled": false
+    },
+    {
+      "id": "guan-yu-max",
+      "name": "关羽五维 99／兵力 9,999",
+      "code": "6AE8:63+6AE9:63+6AEA:63+6AEB:63+6AEC:63+6AF4:0F+6AF5:27",
+      "enabled": false
+    },
+    {
+      "id": "zhang-fei-max",
+      "name": "张飞五维 99／兵力 9,999",
+      "code": "6588:63+6589:63+658A:63+658B:63+658C:63+6594:0F+6595:27",
+      "enabled": false
+    }
+  ]
+}

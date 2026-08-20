@@ -1,0 +1,71 @@
+{
+  "game": "重装机兵super hack",
+  "cheats": [
+    {
+      "id": "no-encounters",
+      "name": "不遇敌",
+      "code": "0440:00",
+      "enabled": false
+    },
+    {
+      "id": "money-9999999",
+      "name": "金钱 9,999,999",
+      "code": "645D:7F+645E:96+645F:98",
+      "enabled": false
+    },
+    {
+      "id": "hero-hp-999",
+      "name": "主角 HP 固定 999",
+      "code": "6460:E7+6461:03+6466:E7+6467:03",
+      "enabled": false
+    },
+    {
+      "id": "mechanic-hp-999",
+      "name": "机械师 HP 固定 999",
+      "code": "6462:E7+6463:03+6468:E7+6469:03",
+      "enabled": false
+    },
+    {
+      "id": "warrior-hp-999",
+      "name": "女战士 HP 固定 999",
+      "code": "6464:E7+6465:03+646A:E7+646B:03",
+      "enabled": false
+    },
+    {
+      "id": "battle-level-99",
+      "name": "三人战斗等级 99",
+      "code": "648D:63+648E:63+648F:63",
+      "enabled": false
+    },
+    {
+      "id": "repair-level-99",
+      "name": "三人修理等级 99",
+      "code": "6490:63+6491:63+6492:63",
+      "enabled": false
+    },
+    {
+      "id": "driving-level-99",
+      "name": "三人驾驶等级 99",
+      "code": "6493:63+6494:63+6495:63",
+      "enabled": false
+    },
+    {
+      "id": "hero-exp-9999999",
+      "name": "主角经验 9,999,999",
+      "code": "64C9:7F+64CA:96+64CB:98",
+      "enabled": false
+    },
+    {
+      "id": "mechanic-exp-9999999",
+      "name": "机械师经验 9,999,999",
+      "code": "64CC:7F+64CD:96+64CE:98",
+      "enabled": false
+    },
+    {
+      "id": "warrior-exp-9999999",
+      "name": "女战士经验 9,999,999",
+      "code": "64CF:7F+64D0:96+64D1:98",
+      "enabled": false
+    }
+  ]
+}
