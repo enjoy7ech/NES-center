@@ -39,7 +39,7 @@ h2 { margin-bottom: 0; font-size: 20px; }
 .button-quiet:hover { background: #252d2d; }
 input[type="file"] { display: none; }
 
-.home-shell { position: relative; isolation: isolate; display: grid; width: 100%; height: 100vh; height: 100dvh; min-height: 0; grid-template-rows: minmax(0, 1fr); overflow: hidden; padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); background: #090b0d; }
+.home-shell { position: fixed; isolation: isolate; inset: 0; display: grid; width: auto; height: auto; min-height: 0; grid-template-rows: minmax(0, 1fr); overflow: hidden; padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); background: #090b0d; }
 .home-shell::after { content: ''; position: absolute; z-index: -1; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(0,0,0,.2) 3px 4px); mix-blend-mode: multiply; }
 .retro-atmosphere { position: absolute; z-index: -2; inset: 0; overflow: hidden; pointer-events: none; background: radial-gradient(circle at 50% 38%, rgba(164,48,45,.16), transparent 25%), radial-gradient(ellipse at 50% 110%, rgba(70,85,91,.35), transparent 54%), linear-gradient(#111518, #080a0c 64%); }
 .retro-grid { position: absolute; inset: 52% -20% -55%; background-image: linear-gradient(rgba(190,52,49,.15) 1px, transparent 1px), linear-gradient(90deg, rgba(190,52,49,.15) 1px, transparent 1px); background-size: 42px 28px; transform: perspective(420px) rotateX(62deg); transform-origin: top; animation: retro-grid-drift 5s linear infinite; mask-image: linear-gradient(to bottom, transparent, #000 25%); }
@@ -71,8 +71,8 @@ input[type="file"] { display: none; }
 .cartridge-screw::after { content: ''; position: absolute; top: 50%; left: 1px; right: 1px; height: 1px; background: #4c4f4b; transform: rotate(-28deg); }
 .cartridge-screw-left { left: 12%; }
 .cartridge-screw-right { right: 12%; }
-.cartridge-label { position: relative; z-index: 3; display: block; width: 78%; height: 100%; overflow: hidden; border: 4px solid #d8d4ca; border-radius: 4px; margin: 0 auto; background: #17191a; box-shadow: 0 3px 7px rgba(0,0,0,.32), inset 0 0 0 1px rgba(0,0,0,.48); }
-.cartridge-label img { display: block; width: 100%; height: 100%; object-fit: contain; background: #090a0a; }
+.cartridge-label { position: absolute; z-index: 3; top: 16%; bottom: 13.6%; left: 50%; display: block; width: 59%; height: auto; overflow: hidden; border: 4px solid #d8d4ca; border-radius: 4px; margin: 0; background: #17191a; box-shadow: 0 3px 7px rgba(0,0,0,.32), inset 0 0 0 1px rgba(0,0,0,.48); transform: translateX(-50%); }
+.cartridge-label img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
 .cover-placeholder { position: relative; width: 100%; height: 100%; overflow: hidden; color: #e8e3d8; background: linear-gradient(145deg, color-mix(in srgb, var(--cartridge-accent), #0d0f10 38%), #101214 70%); }
 .cover-placeholder::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(135deg, transparent 0 13px, rgba(255,255,255,.04) 13px 15px); }
 .cover-pixels { position: absolute; top: 30%; left: 50%; width: 52%; height: 34%; background: var(--cartridge-accent); clip-path: polygon(0 38%, 18% 38%, 18% 16%, 39% 16%, 39% 0, 61% 0, 61% 16%, 82% 16%, 82% 38%, 100% 38%, 100% 62%, 82% 62%, 82% 84%, 61% 84%, 61% 100%, 39% 100%, 39% 84%, 18% 84%, 18% 62%, 0 62%); opacity: .86; transform: translate(-50%, -50%); filter: drop-shadow(4px 4px rgba(0,0,0,.3)); }
@@ -236,6 +236,7 @@ kbd { min-width: 28px; border: 1px solid var(--separator); border-bottom-color: 
   .carousel-arrow { width: 42px; height: 42px; }
   .carousel-item { width: clamp(130px, 36vw, 180px); transform: translate(-50%, -50%) translateX(calc(var(--offset) * clamp(110px, 34vw, 170px))) rotateY(calc(var(--offset) * -30deg)) scale(var(--depth)); }
   .cartridge { padding-inline: 8%; }
+  .cartridge-label { width: 65.5%; }
   .keyboard-settings { padding: 16px; }
   .binding-sections { margin-top: 12px; }
   .app-shell { padding-inline: 12px; }
