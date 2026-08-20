@@ -22,7 +22,7 @@ button, input { font: inherit; }
 button { color: inherit; }
 button:focus-visible, label:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-.app-shell { display: grid; width: 100%; height: 100svh; min-height: 0; grid-template-rows: minmax(0, 1fr); overflow: hidden; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+.app-shell { display: grid; width: 100%; height: 100vh; height: 100svh; min-height: 0; grid-template-rows: minmax(0, 1fr); overflow: hidden; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
 .topbar, .console { width: min(1180px, 100%); margin: 0 auto; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 0 20px; }
 .eyebrow { margin: 0 0 6px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .16em; }
@@ -39,7 +39,7 @@ h2 { margin-bottom: 0; font-size: 20px; }
 .button-quiet:hover { background: #252d2d; }
 input[type="file"] { display: none; }
 
-.home-shell { position: relative; isolation: isolate; display: grid; width: 100%; height: 100svh; min-height: 0; grid-template-rows: minmax(0, 1fr); overflow: hidden; padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); background: #090b0d; }
+.home-shell { position: relative; isolation: isolate; display: grid; width: 100%; height: 100vh; height: 100svh; min-height: 0; grid-template-rows: minmax(0, 1fr); overflow: hidden; padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); background: #090b0d; }
 .home-shell::after { content: ''; position: absolute; z-index: -1; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(0,0,0,.2) 3px 4px); mix-blend-mode: multiply; }
 .retro-atmosphere { position: absolute; z-index: -2; inset: 0; overflow: hidden; pointer-events: none; background: radial-gradient(circle at 50% 38%, rgba(164,48,45,.16), transparent 25%), radial-gradient(ellipse at 50% 110%, rgba(70,85,91,.35), transparent 54%), linear-gradient(#111518, #080a0c 64%); }
 .retro-grid { position: absolute; inset: 52% -20% -55%; background-image: linear-gradient(rgba(190,52,49,.15) 1px, transparent 1px), linear-gradient(90deg, rgba(190,52,49,.15) 1px, transparent 1px); background-size: 42px 28px; transform: perspective(420px) rotateX(62deg); transform-origin: top; animation: retro-grid-drift 5s linear infinite; mask-image: linear-gradient(to bottom, transparent, #000 25%); }
@@ -128,9 +128,9 @@ kbd { min-width: 28px; border: 1px solid var(--separator); border-bottom-color: 
 .quick-tools button.is-holding::after { content: ''; position: absolute; right: 0; bottom: 0; left: 0; height: 3px; background: #f0b958; transform-origin: left; animation: hold-progress 1s linear forwards; }
 .quick-tools button.is-speed-active { color: #fff0bd; border-color: #b17a35; background: #654321; }
 .quick-tools span { color: #e5ad54; font-size: 11px; }
-.screen-wrap { position: relative; min-height: 0; overflow: hidden; border: 1px solid var(--separator); border-radius: 16px; background: #050606; box-shadow: 0 20px 70px rgba(0,0,0,.26); }
-.emulator-host { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; overflow: hidden; }
-.emulator-canvas { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; image-rendering: pixelated; background: #050606; }
+.screen-wrap { position: relative; min-width: 0; min-height: 0; max-width: 100%; overflow: hidden; contain: layout paint; border: 1px solid var(--separator); border-radius: 16px; background: #050606; box-shadow: 0 20px 70px rgba(0,0,0,.26); }
+.emulator-host { position: absolute; inset: 0; display: flex; min-width: 0; min-height: 0; align-items: center; justify-content: center; overflow: hidden; }
+.emulator-canvas { position: absolute; inset: 0; display: block; width: 100% !important; height: 100% !important; min-width: 0; min-height: 0; max-width: 100%; max-height: 100%; object-fit: contain; object-position: center; image-rendering: pixelated; background: #050606; }
 .empty-screen { display: grid; gap: 8px; place-items: center; color: var(--secondary); font-size: 13px; }
 .empty-screen strong { color: var(--primary); font-size: 18px; }
 .signal-dot { width: 8px; height: 8px; margin-bottom: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 6px rgba(229,173,84,.1); }
@@ -313,13 +313,13 @@ kbd { min-width: 28px; border: 1px solid var(--separator); border-bottom-color: 
 
 @media (orientation: portrait) and (max-width: 900px) {
   .app-shell { padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); background: radial-gradient(circle at 50% 18%, #848881, #535855 76%); }
-  .console { position: relative; isolation: isolate; width: min(560px, 100%); height: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto auto clamp(150px, 22svh, 185px) auto; align-content: start; align-items: center; gap: 8px 18px; overflow: hidden; border: 1px solid #d3d2c4; border-radius: 14px 14px 44px 14px; padding: 10px 12px 14px; background: linear-gradient(112deg, #c8c7b9, #aaa99d 72%, #929388); box-shadow: inset 3px 3px 0 rgba(255,255,255,.2), inset -5px -5px 0 rgba(58,60,56,.18), 0 10px 28px rgba(0,0,0,.38); }
+  .console { position: relative; isolation: isolate; width: min(560px, 100%); height: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto auto clamp(150px, 22vh, 185px) auto; grid-template-rows: auto auto clamp(150px, 22svh, 185px) auto; align-content: start; align-items: center; gap: 8px 18px; overflow: hidden; border: 1px solid #d3d2c4; border-radius: 14px 14px 44px 14px; padding: 10px 12px 14px; background: linear-gradient(112deg, #c8c7b9, #aaa99d 72%, #929388); box-shadow: inset 3px 3px 0 rgba(255,255,255,.2), inset -5px -5px 0 rgba(58,60,56,.18), 0 10px 28px rgba(0,0,0,.38); }
   .console::after { content: ''; position: absolute; z-index: -1; right: 20px; bottom: 15px; width: 68px; height: 26px; opacity: .28; background: repeating-linear-gradient(105deg, transparent 0 7px, #424641 7px 10px, transparent 10px 15px); transform: rotate(-5deg); }
   .game-column { display: contents; }
   .quick-tools { grid-column: 1 / -1; grid-row: 1; gap: 3px; }
   .quick-tools button { flex: 1 1 0; min-width: 0; height: 29px; gap: 3px; border-color: #555953; padding-inline: 4px; color: #d9d8cc; background: #343837; box-shadow: inset 0 0 0 1px #171a19, 0 2px 0 rgba(49,51,48,.55); font-size: clamp(7px, 2.25vw, 9px); letter-spacing: 0; }
   .quick-tools span { font-size: 9px; }
-  .screen-wrap { grid-column: 1 / -1; grid-row: 2; width: 96%; max-height: min(41svh, 350px); aspect-ratio: 4 / 3; justify-self: center; margin-top: clamp(12px, 2svh, 20px); border: 10px solid #34393b; border-bottom-width: 13px; border-radius: 9px 9px 28px 9px; background: #798b71; box-shadow: inset 0 0 0 2px #101313, 0 3px 0 rgba(255,255,255,.24); }
+  .screen-wrap { grid-column: 1 / -1; grid-row: 2; width: 96%; max-height: min(41vh, 350px); max-height: min(41svh, 350px); aspect-ratio: 4 / 3; justify-self: center; margin-top: clamp(12px, 2vh, 20px); margin-top: clamp(12px, 2svh, 20px); border: 10px solid #34393b; border-bottom-width: 13px; border-radius: 28px; background: #798b71; box-shadow: inset 0 0 0 2px #101313, 0 3px 0 rgba(255,255,255,.24); }
   .emulator-host { background: #050706; }
   .side-controls { align-self: stretch; }
   .side-controls-left { grid-column: 1; grid-row: 3; }
