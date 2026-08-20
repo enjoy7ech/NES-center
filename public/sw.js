@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'fc-center-'
-const CACHE_NAME = `${CACHE_PREFIX}v2`
+const CACHE_NAME = `${CACHE_PREFIX}v3`
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -47,6 +47,11 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
+  if (url.pathname.startsWith('/cheat/')) {
+    event.respondWith(networkFirst(request))
+    return
+  }
+
   event.respondWith(cacheFirst(request))
 })
 
@@ -59,6 +64,18 @@ async function networkFirstPage(request) {
     return response
   } catch {
     return (await cache.match('/index.html')) || Response.error()
+  }
+}
+
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE_NAME)
+
+  try {
+    const response = await fetch(request)
+    if (response.ok) await cache.put(request, response.clone())
+    return response
+  } catch {
+    return (await cache.match(request)) || Response.error()
   }
 }
 

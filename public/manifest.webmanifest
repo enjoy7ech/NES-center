@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "FC Center",
-  "short_name": "FC Center",
-  "description": "随时畅玩经典 FC 游戏的网页模拟器。",
+  "name": "董哥的小霸王",
+  "short_name": "董哥的小霸王",
+  "description": "董哥的小霸王，随时畅玩经典 FC 游戏。",
   "lang": "zh-CN",
   "start_url": "/",
   "scope": "/",
