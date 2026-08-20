@@ -515,6 +515,11 @@ function GameToolsDialog({
 function HomePage({ onOpenSettings }: { onOpenSettings: () => void }) {
   const [activeGame, setActiveGame] = useState(0)
 
+  useEffect(() => {
+    document.body.classList.add('home-page-active')
+    return () => document.body.classList.remove('home-page-active')
+  }, [])
+
   const moveCarousel = (direction: number) => {
     setActiveGame(current => (current + direction + games.length) % games.length)
   }

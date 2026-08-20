@@ -18,6 +18,7 @@
 * { box-sizing: border-box; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body { min-width: 320px; background-color: #535855; background-image: url('/nintendo-pattern.svg'); background-size: 240px 135px; }
+body.home-page-active { background-color: #080a0c; background-image: linear-gradient(rgba(190,52,49,.15) 1px, transparent 1px), linear-gradient(90deg, rgba(190,52,49,.15) 1px, transparent 1px), radial-gradient(ellipse at 50% 110%, rgba(70,85,91,.35), transparent 54%), linear-gradient(#111518, #080a0c 64%); background-size: 42px 28px, 42px 28px, 100% 100%, 100% 100%; background-repeat: repeat, repeat, no-repeat, no-repeat; animation: home-safe-area-drift 5s linear infinite; }
 button, input { font: inherit; }
 button { color: inherit; }
 button:focus-visible, label:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
@@ -90,6 +91,7 @@ input[type="file"] { display: none; }
 .home-settings-button:hover { color: #fff; border-color: #9b3937; background: #6f2928; }
 
 @keyframes retro-grid-drift { to { background-position: 0 28px, 42px 0; } }
+@keyframes home-safe-area-drift { to { background-position: 0 28px, 42px 0, 0 0, 0 0; } }
 @keyframes retro-scan { from { transform: translateY(-100%); } to { transform: translateY(650%); } }
 @keyframes pixel-twinkle { 0%, 100% { opacity: .2; } 50% { opacity: .85; } }
 @keyframes cartridge-idle { 0%, 100% { margin-top: 0; } 50% { margin-top: -6px; } }
