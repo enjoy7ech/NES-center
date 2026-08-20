@@ -15,6 +15,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: build-${{ github.run_number }}
 
     steps:
       - name: Check out repository
@@ -37,14 +39,13 @@ jobs:
 
       - name: Package dist
         run: |
-          zip -r dist.zip dist
+          zip -r "$RELEASE_TAG.zip" dist
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: build-${{ github.run_number }}
         run: |
-          gh release create "$RELEASE_TAG" dist.zip \
+          gh release create "$RELEASE_TAG" "$RELEASE_TAG.zip" \
             --target "$GITHUB_SHA" \
             --title "Build ${GITHUB_SHA::7}" \
             --generate-notes
