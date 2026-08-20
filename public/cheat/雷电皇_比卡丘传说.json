@@ -1,0 +1,105 @@
+{
+  "game": "雷电皇 比卡丘传说",
+  "rom": {
+    "crc32": "F4EBE9B2",
+    "mapper": 163
+  },
+  "cheats": [
+    {
+      "id": "master-ball-255",
+      "name": "大师球 255",
+      "code": "60D2:FF",
+      "enabled": false
+    },
+    {
+      "id": "potion-255",
+      "name": "伤药 255",
+      "code": "60D4:FF",
+      "enabled": false
+    },
+    {
+      "id": "super-potion-255",
+      "name": "超级伤药 255",
+      "code": "60D6:FF",
+      "enabled": false
+    },
+    {
+      "id": "max-potion-255",
+      "name": "最大伤药 255",
+      "code": "60D7:FF",
+      "enabled": false
+    },
+    {
+      "id": "paralyze-heal-255",
+      "name": "解麻药 255",
+      "code": "60D9:FF",
+      "enabled": false
+    },
+    {
+      "id": "awakening-255",
+      "name": "解眠药 255",
+      "code": "60DA:FF",
+      "enabled": false
+    },
+    {
+      "id": "ice-heal-255",
+      "name": "解冻药 255",
+      "code": "60DB:FF",
+      "enabled": false
+    },
+    {
+      "id": "burn-heal-255",
+      "name": "烧伤药 255",
+      "code": "60DC:FF",
+      "enabled": false
+    },
+    {
+      "id": "full-heal-255",
+      "name": "万能药 255",
+      "code": "60DD:FF",
+      "enabled": false
+    },
+    {
+      "id": "ether-255",
+      "name": "精神药 255",
+      "code": "60DE:FF",
+      "enabled": false
+    },
+    {
+      "id": "pp-up-255",
+      "name": "PP 提升 255",
+      "code": "60DF:FF",
+      "enabled": false
+    },
+    {
+      "id": "pp-restore-255",
+      "name": "PP 恢复药 255",
+      "code": "60E0:FF",
+      "enabled": false
+    },
+    {
+      "id": "rare-candy-255",
+      "name": "神奇糖果 255",
+      "code": "60E1:FF",
+      "enabled": false
+    },
+    {
+      "id": "evolution-stones-255",
+      "name": "全进化石 255",
+      "code": "60E2:FF+60E3:FF+60E4:FF+60E5:FF+60E6:FF",
+      "enabled": false
+    },
+    {
+      "id": "field-moves-80",
+      "name": "居合斩·飞天·冲浪·怪力·闪光 80",
+      "code": "60F2:50+60F3:50+60F4:50+60F5:50+60F6:50",
+      "enabled": false
+    },
+    {
+      "id": "earthquake-80",
+      "name": "地震技能 80",
+      "code": "6110:50",
+      "enabled": false
+    }
+  ]
+}

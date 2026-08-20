@@ -1,0 +1,65 @@
+{
+  "game": "爆笑三国（修改版）",
+  "cheats": [
+    {
+      "id": "unlimited-actions",
+      "name": "我方无限行动",
+      "code": "6822:00",
+      "enabled": false
+    },
+    {
+      "id": "party-hp-999",
+      "name": "前四人当前生命 999",
+      "code": "65A7:E7+65A8:03+65A9:E7+65AA:03+65AB:E7+65AC:03+65AD:E7+65AE:03",
+      "enabled": false
+    },
+    {
+      "id": "leader-max-hp-999",
+      "name": "主将最大生命 999",
+      "code": "6557:E7+6558:03",
+      "enabled": false
+    },
+    {
+      "id": "party-attack-999",
+      "name": "前四人攻击力 999",
+      "code": "6647:E7+6648:03+6649:E7+664A:03+664B:E7+664C:03+664D:E7+664E:03",
+      "enabled": false
+    },
+    {
+      "id": "party-exp-9999",
+      "name": "前四人经验值 9999",
+      "code": "65F7:0F+65F8:27+65F9:0F+65FA:27+65FB:0F+65FC:27+65FD:0F+65FE:27",
+      "enabled": false
+    },
+    {
+      "id": "leader-movement-99",
+      "name": "主将移动步数 99",
+      "code": "66BF:63",
+      "enabled": false
+    },
+    {
+      "id": "leader-defense-255",
+      "name": "主将防御力 255",
+      "code": "6697:FF",
+      "enabled": false
+    },
+    {
+      "id": "leader-ultimate-class",
+      "name": "主将兵种：究极军师",
+      "code": "6467:18",
+      "enabled": false
+    },
+    {
+      "id": "leader-ultimate-level",
+      "name": "主将级别：究极军师 LV4",
+      "code": "643F:46",
+      "enabled": false
+    },
+    {
+      "id": "leader-nuclear-skill",
+      "name": "主将技术：核攻击",
+      "code": "66E7:21",
+      "enabled": false
+    }
+  ]
+}

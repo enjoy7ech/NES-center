@@ -29,9 +29,9 @@ export function inspectRom(buffer: ArrayBuffer): RomInfo {
 
   const vectorOffset = 16 + trainerBytes + prgBytes - 4
   const resetVector = bytes[vectorOffset] | (bytes[vectorOffset + 1] << 8)
-  if (resetVector < 0x8000) {
-    throw new Error(`ROM 的复位向量无效（0x${resetVector.toString(16).padStart(4, '0').toUpperCase()}），无法启动 CPU。`)
-  }
+  // This is only a useful diagnostic for simple, fixed-bank boards. Mappers
+  // may expose a different PRG bank at $C000-$FFFF on power-on, so the final
+  // bytes in the ROM file are not necessarily the CPU reset vector.
 
   return {
     format: 'iNES',
@@ -70,9 +70,6 @@ function inspectUnifRom(bytes: Uint8Array): RomInfo {
   const lastPrg = prgChunks[prgChunks.length - 1].data
   if (lastPrg.length < 4) throw new Error('UNIF ROM 的末尾 PRG 区块不完整。')
   const resetVector = lastPrg[lastPrg.length - 4] | (lastPrg[lastPrg.length - 3] << 8)
-  if (resetVector < 0x8000) {
-    throw new Error(`UNIF ROM 的复位向量无效（0x${resetVector.toString(16).padStart(4, '0').toUpperCase()}）。`)
-  }
 
   return {
     format: 'UNIF',

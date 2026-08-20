@@ -38,6 +38,24 @@ const games = [
     cover: '/covers/sangokushi2-bawang.png',
     available: true,
   },
+  {
+    title: '爆笑三国（修改版）',
+    englishTitle: 'BAOXIAO SANGUO MOD',
+    code: '0664D605',
+    rom: '/ROMS/爆笑三国-修改版.nes',
+    accent: '#4d83b7',
+    cover: '/covers/baoxiao-sanguo-mod.png',
+    available: true,
+  },
+  {
+    title: '雷电皇 比卡丘传说',
+    englishTitle: 'PIKACHU LEGEND',
+    code: 'F4EBE9B2',
+    rom: '/ROMS/雷电皇_比卡丘传说.nes',
+    accent: '#e8a51d',
+    cover: '/covers/pikachu-legend.png',
+    available: true,
+  },
 ]
 
 type KeyboardAction = ControllerButton | 'quickSave' | 'quickLoad' | 'speedToggle' | 'coreMenu'
@@ -274,11 +292,14 @@ function normalizeCheatCode(value: string) {
 async function loadBuiltInCheats(fileName: string): Promise<CheatRule[]> {
   const romName = fileName.replace(/\.[^.]+$/, '')
   const response = await fetch(`/cheat/${encodeURIComponent(romName)}.json`)
-  if (response.status === 404) return []
+  if (response.status === 404 || response.status === 204) return []
   if (!response.ok) throw new Error(`金手指文件请求失败：${response.status}`)
-  const payload = await response.json() as {
+  const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+  if (!contentType.includes('json')) return []
+  const payload = await response.json().catch(() => null) as {
     cheats?: Array<{ id?: unknown; name?: unknown; code?: unknown; enabled?: unknown }>
-  }
+  } | null
+  if (!payload) return []
   if (!Array.isArray(payload.cheats)) return []
   return payload.cheats.flatMap((item, index) => {
     if (typeof item.code !== 'string') return []
@@ -873,6 +894,10 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
     setError('正在加载内置测试 ROM。')
     const romRequest = fetch(romPath).then(response => {
       if (!response.ok) throw new Error(`ROM 请求失败：${response.status}`)
+      const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+      if (contentType.includes('text/html')) {
+        throw new Error('ROM 地址返回了网页而不是游戏文件，请更新或重启 PWA 后重试。')
+      }
       return response.arrayBuffer()
     })
     const cheatRequest = loadBuiltInCheats(fileName).catch(reason => {

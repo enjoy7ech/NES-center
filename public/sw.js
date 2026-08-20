@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'fc-center-'
-const CACHE_NAME = `${CACHE_PREFIX}v1`
+const CACHE_NAME = `${CACHE_PREFIX}v2`
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -69,7 +69,10 @@ async function cacheFirst(request) {
 
   try {
     const response = await fetch(request)
-    if (response.ok) await cache.put(request, response.clone())
+    const contentType = response.headers.get('content-type')?.toLowerCase() || ''
+    const isHtmlFallback = contentType.includes('text/html')
+      && !new URL(request.url).pathname.endsWith('.html')
+    if (response.ok && !isHtmlFallback) await cache.put(request, response.clone())
     return response
   } catch {
     return Response.error()
