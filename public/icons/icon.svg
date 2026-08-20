@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="FC Center">
+  <rect width="512" height="512" rx="112" fill="#0b0d0f"/>
+  <rect x="76" y="118" width="360" height="276" rx="72" fill="#e6e1d8"/>
+  <rect x="96" y="138" width="320" height="236" rx="54" fill="#b8b4ad"/>
+  <rect x="126" y="174" width="260" height="164" rx="38" fill="#22262a"/>
+  <path d="M172 214h36v32h32v36h-32v32h-36v-32h-32v-36h32z" fill="#f4f1eb"/>
+  <circle cx="318" cy="244" r="24" fill="#e53935"/>
+  <circle cx="362" cy="288" r="24" fill="#e53935"/>
+  <rect x="246" y="302" width="42" height="12" rx="6" fill="#777c82" transform="rotate(-16 267 308)"/>
+  <path d="M171 375h170l-18 39H189z" fill="#e53935"/>
+</svg>
