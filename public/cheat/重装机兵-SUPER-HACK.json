@@ -32,6 +32,24 @@
       "enabled": false
     },
     {
+      "id": "hero-attack-999",
+      "name": "主角攻击力固定 999",
+      "code": "646C:E7+646D:03",
+      "enabled": false
+    },
+    {
+      "id": "mechanic-attack-999",
+      "name": "机械师攻击力固定 999",
+      "code": "646E:E7+646F:03",
+      "enabled": false
+    },
+    {
+      "id": "warrior-attack-999",
+      "name": "女战士攻击力固定 999",
+      "code": "6470:E7+6471:03",
+      "enabled": false
+    },
+    {
       "id": "battle-level-99",
       "name": "三人战斗等级 99",
       "code": "648D:63+648E:63+648F:63",
