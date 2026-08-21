@@ -76,12 +76,12 @@ function backupSummary(saveStates: Array<{ gameId: string }>, settings: Record<s
   }
 }
 
-function dropLegacyTenthSlots<T extends { slot: number }>(records: T[]) {
-  return records.filter(record => record.slot !== 9)
+function dropRemovedSlots<T extends { slot: number }>(records: T[]) {
+  return records.filter(record => record.slot < 8)
 }
 
 export async function createAppBackup() {
-  const saveStates = dropLegacyTenthSlots(await exportAllSaveStates())
+  const saveStates = dropRemovedSlots(await exportAllSaveStates())
   const settings = exportSettings()
   const backup: AppBackup = {
     format: BACKUP_FORMAT,
@@ -99,7 +99,7 @@ export async function createAppBackup() {
 }
 
 export async function createGameBackup(gameId: string, gameTitle: string, settingKeys: string[]) {
-  const saveStates = dropLegacyTenthSlots(await exportAllSaveStates())
+  const saveStates = dropRemovedSlots(await exportAllSaveStates())
     .filter(record => record.gameId === gameId)
   const settings = exportSettings(new Set(settingKeys))
   const exportedAt = new Date().toISOString()
@@ -127,7 +127,7 @@ function parseSaveState(value: unknown): SaveStateBackupRecord {
   if (!isRecord(value)) throw new Error('备份中的存档记录格式无效。')
   const { gameId, slot, updatedAt, thumbnail, virtualPath, data } = value
   if (typeof gameId !== 'string' || !gameId || gameId.length > 512) throw new Error('备份中的游戏标识无效。')
-  if (!Number.isInteger(slot) || (slot as number) < -1 || (slot as number) > 9) throw new Error('备份中的存档槽位无效。')
+  if (!Number.isInteger(slot) || (slot as number) < -2 || (slot as number) > 9) throw new Error('备份中的存档槽位无效。')
   if (typeof updatedAt !== 'number' || !Number.isFinite(updatedAt) || updatedAt < 0) throw new Error('备份中的存档时间无效。')
   if (typeof thumbnail !== 'string' || thumbnail.length > 4 * 1024 * 1024) throw new Error('备份中的缩略图无效。')
   if (typeof virtualPath !== 'string' || !virtualPath.startsWith('/save-states/') || virtualPath.length > 512) {
@@ -165,7 +165,7 @@ function parseAppBackup(json: string) {
   if (!Array.isArray(value.saveStates) || value.saveStates.length > MAX_SAVE_STATES) {
     throw new Error('备份中的存档数量无效。')
   }
-  const parsedSaveStates = dropLegacyTenthSlots(value.saveStates.map(parseSaveState))
+  const parsedSaveStates = dropRemovedSlots(value.saveStates.map(parseSaveState))
   const totalBytes = parsedSaveStates.reduce((total, record) => total + record.data.byteLength, 0)
   if (totalBytes > MAX_TOTAL_STATE_BYTES) throw new Error('备份中的存档总大小超过限制。')
   const parsedSettings = parseSettings(value.settings)

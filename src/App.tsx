@@ -143,6 +143,7 @@ type ControlButtonProps = {
 }
 
 const nativeSwitchProps = { switch: '' } as React.InputHTMLAttributes<HTMLInputElement>
+const quickSlotHoldMs = 600
 
 function triggerHapticFeedback() {
   if (!('vibrate' in navigator)) return
@@ -289,7 +290,7 @@ function HoldActionButton({
       type="button"
       className={holding ? 'is-holding' : ''}
       disabled={disabled}
-      aria-label={`${label}，短按选择槽位，长按一秒使用快速槽位`}
+      aria-label={`${label}，短按选择槽位，长按约半秒使用快速槽位`}
       onPointerDown={event => {
         if (disabled || event.button !== 0) return
         event.preventDefault()
@@ -300,7 +301,7 @@ function HoldActionButton({
           setHolding(false)
           triggerHapticFeedback()
           onHold()
-        }, 1000)
+        }, quickSlotHoldMs)
       }}
       onPointerUp={event => {
         const shouldPress = timer.current !== null
@@ -324,14 +325,15 @@ function HoldActionButton({
 type GameTool = 'save' | 'load' | 'cheats'
 
 const saveSlots = [
+  { slot: -2, label: 'AUTO' },
   { slot: -1, label: 'QUICK' },
-  ...Array.from({ length: 9 }, (_, index) => ({
+  ...Array.from({ length: 8 }, (_, index) => ({
     slot: index,
     label: `SLOT ${String(index + 1).padStart(2, '0')}`,
   })),
 ]
 const maxCheats = 16
-const autoQuickSaveIntervalMs = 30_000
+const autoSaveIntervalMs = 30_000
 const gameSpeeds: EmulatorSpeed[] = [1, 2, 5]
 const gameGeniePattern = /^[APZLGITYEOXUKSVN]{6}(?:[APZLGITYEOXUKSVN]{2})?$/
 const rawCheatPattern = /^(?:[0-9A-F]{4}:[0-9A-F]{2}|[0-9A-F]{4}\?[0-9A-F]{2}:[0-9A-F]{2})$/
@@ -420,7 +422,7 @@ function SaveSlotCard({
   useEffect(() => clearHold, [])
 
   return (
-    <div className={`save-slot${saved ? ' is-filled' : ''}${slot === -1 ? ' is-quick-slot' : ''}${disabled ? ' is-disabled' : ''}${showDelete ? ' is-delete-visible' : ''}`}>
+    <div className={`save-slot${saved ? ' is-filled' : ''}${slot === -2 ? ' is-auto-slot' : ''}${slot === -1 ? ' is-quick-slot' : ''}${disabled ? ' is-disabled' : ''}${showDelete ? ' is-delete-visible' : ''}`}>
       <button
         type="button"
         className="save-slot-main"
@@ -599,7 +601,7 @@ function GameToolsDialog({
         </header>
 
         {mode !== 'cheats' ? (
-          <div className="save-slot-grid" aria-label="9 个普通槽位和 1 个快速槽位">
+          <div className="save-slot-grid" aria-label="8 个普通槽位、1 个自动槽位和 1 个快速槽位">
             {saveSlots.map(({ slot, label }) => {
               const saved = slots.find(item => item.slot === slot)
               const isBusy = busySlot === slot
@@ -970,13 +972,13 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
       if (!currentAdapter) return
       stateOperationBusy.current = true
       setQuickBusy(true)
-      void currentAdapter.saveState(-1)
-        .catch(reason => console.warn(reason instanceof Error ? `自动快速存档失败：${reason.message}` : '自动快速存档失败。'))
+      void currentAdapter.saveState(-2)
+        .catch(reason => console.warn(reason instanceof Error ? `定时存档失败：${reason.message}` : '定时存档失败。'))
         .finally(() => {
           stateOperationBusy.current = false
           setQuickBusy(false)
         })
-    }, autoQuickSaveIntervalMs)
+    }, autoSaveIntervalMs)
     return () => window.clearInterval(timer)
   }, [activeTool, busySlot, status])
 

@@ -48,7 +48,7 @@ async function readAllRecords(database: IDBDatabase) {
 function normalizeRecords(records: SaveStateRecord[]) {
   const normalized = new Map<string, SaveStateRecord>()
   for (const record of records) {
-    if (record.slot < -1 || record.slot >= 9 || !isCurrentGameId(record.gameId)) continue
+    if (record.slot < -2 || record.slot >= 8 || !isCurrentGameId(record.gameId)) continue
     const gameId = record.gameId
     const id = slotId(gameId, record.slot)
     const candidate = { ...record, id, gameId }
@@ -65,8 +65,8 @@ export async function removeStaleSaveStateData(staleGameIds: ReadonlySet<string>
     const normalized = normalizeRecords(records)
     const normalizedIds = new Set(normalized.map(record => record.id))
     const needsCleanup = records.some(record => (
-      record.slot < -1
-      || record.slot >= 9
+      record.slot < -2
+      || record.slot >= 8
       || !isCurrentGameId(record.gameId)
       || staleGameIds.has(record.gameId)
       || record.id !== slotId(record.gameId, record.slot)
