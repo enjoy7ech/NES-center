@@ -1,5 +1,6 @@
 import type { CheatRule, ControllerButton, ControllerEvent, EmulatorAdapter, EmulatorSpeed, EmulatorStatus } from './types'
 import { deleteSaveState, listSaveStates, readSaveState, writeSaveState } from './saveStateStore'
+import { gameIdFromRomName } from './gameIdentity'
 
 type RetroArchModule = {
   canvas?: HTMLCanvasElement
@@ -105,7 +106,7 @@ export class RetroArchAdapter implements EmulatorAdapter {
     }
 
     const generation = ++this.loadGeneration
-    this.gameId = name.replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N}_-]+/gu, '-').toLowerCase() || 'game'
+    this.gameId = gameIdFromRomName(name)
     this.options.onStatus('loading')
     this.canvas = document.createElement('canvas')
     this.canvas.className = 'emulator-canvas'
@@ -182,6 +183,10 @@ export class RetroArchAdapter implements EmulatorAdapter {
       return
     }
     this.releaseButton(event.button)
+  }
+
+  public getGameId() {
+    return this.gameId
   }
 
   public releaseInputs() {
@@ -284,25 +289,37 @@ export class RetroArchAdapter implements EmulatorAdapter {
     if (!this.runtimeReady || !this.module?._cmd_save_state || !this.module.FS) {
       throw new Error('游戏尚未准备好，不能存档。')
     }
-    const screenshotsBefore = new Set(this.findScreenshotFiles(this.module.FS))
-    this.module._cmd_take_screenshot?.()
-    if (this.module._cmd_take_screenshot) {
-      await new Promise(resolve => window.setTimeout(resolve, 160))
+    if (this.speedTransitionTimer !== null) {
+      await new Promise(resolve => window.setTimeout(resolve, MIN_VIRTUAL_PRESS_MS + 40))
     }
-    this.module._cmd_save_state()
-    await new Promise(resolve => window.setTimeout(resolve, 140))
-    let stateFilePath = SAVE_STATE_PATH
-    let data: Uint8Array
+    const resumeFastForward = this.speed > 1
+    if (resumeFastForward) {
+      this.pressFastForwardToggle()
+      await new Promise(resolve => window.setTimeout(resolve, MIN_VIRTUAL_PRESS_MS + 24))
+      await this.waitForRenderedFrames(2)
+    }
+
     try {
-      data = this.module.FS.readFile(SAVE_STATE_PATH)
-    } catch {
-      stateFilePath = this.findStateFile(this.module.FS) ?? SAVE_STATE_PATH
-      data = this.module.FS.readFile(stateFilePath)
+      this.removeScreenshotFiles(this.module.FS)
+      this.module._cmd_take_screenshot?.()
+      const thumbnail = await this.captureThumbnail()
+
+      this.module._cmd_save_state()
+      await new Promise(resolve => window.setTimeout(resolve, 140))
+      let stateFilePath = SAVE_STATE_PATH
+      let data: Uint8Array
+      try {
+        data = this.module.FS.readFile(SAVE_STATE_PATH)
+      } catch {
+        stateFilePath = this.findStateFile(this.module.FS) ?? SAVE_STATE_PATH
+        data = this.module.FS.readFile(stateFilePath)
+      }
+      // Persist the canonical load target even when an older core happened to
+      // create the source state under a core-specific subdirectory.
+      return await writeSaveState(this.gameId, slot, data, thumbnail, SAVE_STATE_PATH)
+    } finally {
+      if (resumeFastForward && this.runtimeReady) this.pressFastForwardToggle()
     }
-    const thumbnail = await this.captureThumbnail(screenshotsBefore)
-    // Persist the canonical load target even when an older core happened to
-    // create the source state under a core-specific subdirectory.
-    return writeSaveState(this.gameId, slot, data, thumbnail, SAVE_STATE_PATH)
   }
 
   public async loadState(slot: number) {
@@ -332,21 +349,7 @@ export class RetroArchAdapter implements EmulatorAdapter {
   }
 
   public async listSaveStates() {
-    const states = await listSaveStates(this.gameId)
-    if (!states.some(state => state.slot === -1) && states.some(state => state.slot === 9)) {
-      const previousTenthSlot = await readSaveState(this.gameId, 9)
-      if (previousTenthSlot) {
-        const quickSlot = await writeSaveState(
-          this.gameId,
-          -1,
-          previousTenthSlot.data,
-          previousTenthSlot.thumbnail,
-          previousTenthSlot.virtualPath || SAVE_STATE_PATH,
-        )
-        return [quickSlot, ...states.filter(state => state.slot >= 0 && state.slot < 9)]
-      }
-    }
-    return states.filter(state => state.slot >= -1 && state.slot < 9)
+    return listSaveStates(this.gameId)
   }
 
   public async deleteState(slot: number) {
@@ -501,19 +504,23 @@ export class RetroArchAdapter implements EmulatorAdapter {
     this.appliedCheatCount = enabledCheats.length
   }
 
-  private async captureThumbnail(previousScreenshots: Set<string>) {
+  private async captureThumbnail() {
     const fileSystem = this.module?.FS
     if (fileSystem) {
-      const screenshotPath = this.findScreenshotFiles(fileSystem)
-        .find(path => !previousScreenshots.has(path))
-      if (screenshotPath) {
-        try {
-          const thumbnail = await this.resizeScreenshot(fileSystem.readFile(screenshotPath))
-          fileSystem.unlink?.(screenshotPath)
-          if (thumbnail) return thumbnail
-        } catch {
-          // Fall through to the browser-rendered frame.
+      // Screenshot creation is asynchronous. At high speed the file may be
+      // visible before its PNG bytes are complete, so retry decoding briefly.
+      for (let attempt = 0; attempt < 14; attempt += 1) {
+        const screenshotPath = this.findScreenshotFiles(fileSystem)[0]
+        if (screenshotPath) {
+          try {
+            const thumbnail = await this.resizeScreenshot(fileSystem.readFile(screenshotPath))
+            fileSystem.unlink?.(screenshotPath)
+            if (thumbnail) return thumbnail
+          } catch {
+            // The core may still be writing this PNG; retry on the next tick.
+          }
         }
+        await new Promise(resolve => window.setTimeout(resolve, 25))
       }
     }
     const canvas = this.canvas
@@ -537,6 +544,22 @@ export class RetroArchAdapter implements EmulatorAdapter {
       }
     }
     return this.captureCanvasThumbnail()
+  }
+
+  private removeScreenshotFiles(fileSystem: NonNullable<RetroArchModule['FS']>) {
+    for (const path of this.findScreenshotFiles(fileSystem)) {
+      try {
+        fileSystem.unlink?.(path)
+      } catch {
+        // Stale screenshots are disposable and may already have disappeared.
+      }
+    }
+  }
+
+  private async waitForRenderedFrames(count: number) {
+    for (let frame = 0; frame < count; frame += 1) {
+      await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
+    }
   }
 
   private async resizeScreenshot(png: Uint8Array) {

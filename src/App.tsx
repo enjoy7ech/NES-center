@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { createAppBackup, createGameBackup, restoreAppBackup, restoreGameBackup } from './emulator/backup'
+import { removeStaleLocalSettings } from './emulator/gameIdentity'
 import { RetroArchAdapter } from './emulator/retroarchAdapter'
 import { inspectRom } from './emulator/rom'
 import type { CheatRule, ControllerButton, EmulatorSpeed, EmulatorStatus, SaveStateSlot } from './emulator/types'
@@ -14,7 +16,6 @@ const games = [
   {
     title: '重装机兵 SUPER HACK',
     englishTitle: 'METAL MAX',
-    code: '7100750',
     rom: '/ROMS/重装机兵-SUPER-HACK.nes',
     accent: '#d26451',
     cover: '/covers/metal-max.png',
@@ -23,7 +24,6 @@ const games = [
   {
     title: '吞食天地2 星云完美版 中文版',
     englishTitle: 'DESTINY OF AN EMPEROR II',
-    code: 'CC5B0FAD',
     rom: '/ROMS/吞食天地2-星云完美版-中文版.nes',
     accent: '#b65b3f',
     cover: '/covers/28620_7dd03b349c0d8059bef6d1942e6494c6.png',
@@ -32,7 +32,6 @@ const games = [
   {
     title: '三国志2 霸王的大陆',
     englishTitle: 'SANGOKUSHI II',
-    code: '3A82C349',
     rom: '/ROMS/三国志2-霸王的大陆.nes',
     accent: '#d0a23d',
     cover: '/covers/sangokushi2-bawang.png',
@@ -41,7 +40,6 @@ const games = [
   {
     title: '爆笑三国（修改版）',
     englishTitle: 'BAOXIAO SANGUO MOD',
-    code: '0664D605',
     rom: '/ROMS/爆笑三国-修改版.nes',
     accent: '#4d83b7',
     cover: '/covers/baoxiao-sanguo-mod.png',
@@ -50,7 +48,6 @@ const games = [
   {
     title: '雷电皇 比卡丘传说',
     englishTitle: 'PIKACHU LEGEND',
-    code: 'F4EBE9B2',
     rom: '/ROMS/雷电皇_比卡丘传说.nes',
     accent: '#e8a51d',
     cover: '/covers/pikachu-legend.png',
@@ -156,38 +153,97 @@ function triggerHapticFeedback() {
   }
 }
 
-function ControlButton({ button, label, className = '', onInput }: ControlButtonProps) {
-  const release = (event: React.PointerEvent<HTMLLabelElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-    onInput(button, false)
+async function shareBackupFile(file: File, title: string) {
+  if (!navigator.canShare?.({ files: [file] })) return false
+  try {
+    await navigator.share({ files: [file], title })
+    return true
+  } catch (reason) {
+    if (reason instanceof DOMException && reason.name === 'AbortError') throw reason
+    return false
   }
+}
+
+function ControlButton({ button, label, className = '', onInput }: ControlButtonProps) {
+  const element = useRef<HTMLLabelElement>(null)
+  const activePointer = useRef<number | null>(null)
+  const pressedRef = useRef(false)
+  const inputHandler = useRef(onInput)
+  const [pressed, setPressed] = useState(false)
+  inputHandler.current = onInput
+
+  const updatePressed = (next: boolean) => {
+    pressedRef.current = next
+    setPressed(next)
+  }
+
+  const release = (pointerId?: number) => {
+    if (pointerId !== undefined && activePointer.current !== pointerId) return
+    const capturedPointer = activePointer.current
+    if (capturedPointer === null && !pressedRef.current) return
+    activePointer.current = null
+    updatePressed(false)
+    inputHandler.current(button, false)
+    if (capturedPointer !== null && element.current?.hasPointerCapture(capturedPointer)) {
+      element.current.releasePointerCapture(capturedPointer)
+    }
+    element.current?.querySelector('input')?.blur()
+    element.current?.blur()
+  }
+
+  useEffect(() => {
+    const releasePointer = (event: PointerEvent) => release(event.pointerId)
+    const releaseAll = () => release()
+    window.addEventListener('pointerup', releasePointer, true)
+    window.addEventListener('pointercancel', releasePointer, true)
+    window.addEventListener('blur', releaseAll)
+    window.addEventListener('pagehide', releaseAll)
+    document.addEventListener('visibilitychange', releaseAll)
+    return () => {
+      window.removeEventListener('pointerup', releasePointer, true)
+      window.removeEventListener('pointercancel', releasePointer, true)
+      window.removeEventListener('blur', releaseAll)
+      window.removeEventListener('pagehide', releaseAll)
+      document.removeEventListener('visibilitychange', releaseAll)
+      if (pressedRef.current) inputHandler.current(button, false)
+    }
+  }, [button])
 
   return (
     <label
-      className={`control-button ${className}`}
+      ref={element}
+      className={`control-button ${className}${pressed ? ' is-pressed' : ''}`}
       role="button"
       tabIndex={0}
       aria-label={controlLabels[button]}
       onPointerDown={event => {
-        if (event.button !== 0) return
-        event.currentTarget.setPointerCapture(event.pointerId)
+        if (event.button !== 0 || activePointer.current !== null) return
+        activePointer.current = event.pointerId
+        updatePressed(true)
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId)
+        } catch {
+          // Window-level release listeners cover older Safari pointer-capture failures.
+        }
         triggerHapticFeedback()
-        onInput(button, true)
+        inputHandler.current(button, true)
       }}
-      onPointerUp={release}
-      onPointerCancel={release}
-      onLostPointerCapture={() => onInput(button, false)}
+      onPointerUp={event => release(event.pointerId)}
+      onPointerCancel={event => release(event.pointerId)}
+      onLostPointerCapture={() => release()}
       onContextMenu={event => event.preventDefault()}
       onKeyDown={event => {
         if (event.repeat || (event.key !== 'Enter' && event.key !== ' ')) return
         event.preventDefault()
+        updatePressed(true)
         triggerHapticFeedback()
-        onInput(button, true)
+        inputHandler.current(button, true)
       }}
       onKeyUp={event => {
         if (event.key !== 'Enter' && event.key !== ' ') return
         event.preventDefault()
-        onInput(button, false)
+        updatePressed(false)
+        inputHandler.current(button, false)
       }}
     >
       <input
@@ -275,6 +331,7 @@ const saveSlots = [
   })),
 ]
 const maxCheats = 16
+const autoQuickSaveIntervalMs = 30_000
 const gameSpeeds: EmulatorSpeed[] = [1, 2, 5]
 const gameGeniePattern = /^[APZLGITYEOXUKSVN]{6}(?:[APZLGITYEOXUKSVN]{2})?$/
 const rawCheatPattern = /^(?:[0-9A-F]{4}:[0-9A-F]{2}|[0-9A-F]{4}\?[0-9A-F]{2}:[0-9A-F]{2})$/
@@ -439,6 +496,8 @@ function GameToolsDialog({
   onAddCheat,
   onToggleCheat,
   onRemoveCheat,
+  onExportGame,
+  onImportGame,
   onClose,
 }: {
   mode: GameTool
@@ -451,12 +510,80 @@ function GameToolsDialog({
   onAddCheat: (code: string) => void
   onToggleCheat: (id: string) => void
   onRemoveCheat: (id: string) => void
+  onExportGame: () => ReturnType<typeof createGameBackup>
+  onImportGame: (json: string) => ReturnType<typeof restoreGameBackup>
   onClose: () => void
 }) {
   const [cheatCode, setCheatCode] = useState('')
   const [cheatError, setCheatError] = useState('')
+  const [exportBusy, setExportBusy] = useState(false)
+  const [exportStatus, setExportStatus] = useState('')
+  const [exportDownload, setExportDownload] = useState<{ url: string; fileName: string } | null>(null)
+  const exportDownloadUrl = useRef('')
+  const gameBackupInput = useRef<HTMLInputElement>(null)
   const isSaveMode = mode === 'save'
   const title = isSaveMode ? '存档' : mode === 'load' ? '读档' : '金手指'
+
+  useEffect(() => () => {
+    if (exportDownloadUrl.current) URL.revokeObjectURL(exportDownloadUrl.current)
+  }, [])
+
+  const clearExportDownload = () => {
+    if (exportDownloadUrl.current) URL.revokeObjectURL(exportDownloadUrl.current)
+    exportDownloadUrl.current = ''
+    setExportDownload(null)
+  }
+
+  const downloadGameBackup = (file: File) => {
+    clearExportDownload()
+    const url = URL.createObjectURL(file)
+    exportDownloadUrl.current = url
+    setExportDownload({ url, fileName: file.name })
+    const link = document.createElement('a')
+    link.href = url
+    link.download = file.name
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  }
+
+  const exportGame = async () => {
+    if (exportBusy || busySlot !== null) return
+    clearExportDownload()
+    setExportBusy(true)
+    setExportStatus('正在导出…')
+    try {
+      const { fileName, json, summary } = await onExportGame()
+      const file = new File([json], fileName, { type: 'application/json' })
+      const shared = await shareBackupFile(file, `${fileName.replace(/\.json$/i, '')}`)
+      if (!shared) downloadGameBackup(file)
+      setExportStatus(`已导出 ${summary.saveStateCount} 个槽位${summary.settingCount ? '和金手指配置' : ''}`)
+    } catch (reason) {
+      if (reason instanceof DOMException && reason.name === 'AbortError') setExportStatus('已取消')
+      else setExportStatus(reason instanceof Error ? reason.message : '导出失败')
+    } finally {
+      setExportBusy(false)
+    }
+  }
+
+  const importGame = async (file: File) => {
+    if (exportBusy || busySlot !== null) return
+    if (file.size > 192 * 1024 * 1024) {
+      setExportStatus('备份文件超过 192 MB')
+      return
+    }
+    clearExportDownload()
+    setExportBusy(true)
+    setExportStatus('正在导入…')
+    try {
+      const summary = await onImportGame(await file.text())
+      setExportStatus(`已导入 ${summary.saveStateCount} 个槽位${summary.settingCount ? '；重新进入游戏后金手指生效' : ''}`)
+    } catch (reason) {
+      setExportStatus(reason instanceof Error ? reason.message : '导入失败')
+    } finally {
+      setExportBusy(false)
+    }
+  }
 
   return (
     <div className="pixel-dialog-backdrop" onPointerDown={event => {
@@ -548,6 +675,30 @@ function GameToolsDialog({
         )}
 
         <footer className="pixel-dialog-footer">
+          {isSaveMode && (
+            <div className="game-export-actions">
+              <button type="button" disabled={exportBusy || busySlot !== null} onClick={() => void exportGame()}>
+                {exportBusy ? '处理中…' : '导出本游戏'}
+              </button>
+              <button type="button" disabled={exportBusy || busySlot !== null} onClick={() => gameBackupInput.current?.click()}>
+                导入本游戏
+              </button>
+              <input
+                ref={gameBackupInput}
+                type="file"
+                accept="application/json,.json"
+                onChange={event => {
+                  const file = event.currentTarget.files?.[0]
+                  event.currentTarget.value = ''
+                  if (file) void importGame(file)
+                }}
+              />
+              {exportStatus && <span>{exportStatus}</span>}
+              {exportDownload && (
+                <a href={exportDownload.url} download={exportDownload.fileName}>保存文件</a>
+              )}
+            </div>
+          )}
           <button type="button" onClick={onClose}>返回游戏</button>
         </footer>
       </section>
@@ -622,7 +773,7 @@ function HomePage({ onOpenSettings }: { onOpenSettings: () => void }) {
                   '--item-z': games.length - distance,
                   '--item-zpos': `${distance * -120}px`,
                 } as React.CSSProperties}
-                key={game.code}
+                key={game.rom}
                 aria-label={isActive && game.available ? `游玩${game.title}` : `选择${game.title}`}
                 aria-current={isActive ? 'true' : undefined}
                 tabIndex={isActive ? 0 : -1}
@@ -649,7 +800,7 @@ function HomePage({ onOpenSettings }: { onOpenSettings: () => void }) {
                       <div className="cover-placeholder" aria-hidden="true">
                         <span className="cover-pixels" />
                         <span className="cover-system">8-BIT / FC</span>
-                        <span className="cover-code">{game.code}</span>
+                        <span className="cover-code">{game.englishTitle}</span>
                       </div>
                     )}
                   </div>
@@ -666,7 +817,7 @@ function HomePage({ onOpenSettings }: { onOpenSettings: () => void }) {
           <span>{activeGame + 1} / {games.length}</span>
         </div>
       </section>
-      <button className="home-settings-button" aria-label="键位设置" onClick={onOpenSettings}>键位</button>
+      <button className="home-settings-button" aria-label="系统设置" onClick={onOpenSettings}>设置</button>
     </main>
   )
 }
@@ -680,11 +831,14 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
   const [saveStateSlots, setSaveStateSlots] = useState<SaveStateSlot[]>([])
   const [busySlot, setBusySlot] = useState<number | null>(null)
   const [quickBusy, setQuickBusy] = useState(false)
+  const stateOperationBusy = useRef(false)
   const [gameSpeed, setGameSpeed] = useState<EmulatorSpeed>(1)
   const romPath = new URLSearchParams(window.location.search).get('rom') ?? 'game'
+  const gameTitle = (romPath.split('/').pop() ?? 'game').replace(/\.[^.]+$/, '')
   const cheatStorageKey = `fc-center:cheats:${romPath}`
   const [cheats, setCheats] = useState<CheatRule[]>(() => {
     try {
+      removeStaleLocalSettings()
       return JSON.parse(localStorage.getItem(cheatStorageKey) ?? '[]') as CheatRule[]
     } catch {
       return []
@@ -778,10 +932,12 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
       setError('请等待游戏载入完成。')
       return
     }
-    if (quickBusy) return
+    if (quickBusy || busySlot !== null || stateOperationBusy.current) return
+    stateOperationBusy.current = true
     setQuickBusy(true)
     const action = mode === 'save' ? adapter.current?.saveState(-1) : adapter.current?.loadState(-1)
     if (!action) {
+      stateOperationBusy.current = false
       setQuickBusy(false)
       return
     }
@@ -795,8 +951,34 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
         triggerHapticFeedback()
       })
       .catch(reason => setError(reason instanceof Error ? reason.message : `${mode === 'save' ? '存档' : '读档'}失败`))
-      .finally(() => setQuickBusy(false))
+      .finally(() => {
+        stateOperationBusy.current = false
+        setQuickBusy(false)
+      })
   }
+
+  useEffect(() => {
+    if (status !== 'running') return
+    const timer = window.setInterval(() => {
+      if (
+        document.visibilityState !== 'visible'
+        || activeTool !== null
+        || busySlot !== null
+        || stateOperationBusy.current
+      ) return
+      const currentAdapter = adapter.current
+      if (!currentAdapter) return
+      stateOperationBusy.current = true
+      setQuickBusy(true)
+      void currentAdapter.saveState(-1)
+        .catch(reason => console.warn(reason instanceof Error ? `自动快速存档失败：${reason.message}` : '自动快速存档失败。'))
+        .finally(() => {
+          stateOperationBusy.current = false
+          setQuickBusy(false)
+        })
+    }, autoQuickSaveIntervalMs)
+    return () => window.clearInterval(timer)
+  }, [activeTool, busySlot, status])
 
   const cycleGameSpeed = () => {
     if (status !== 'running' && status !== 'paused') {
@@ -846,6 +1028,8 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
   }, [gameSpeed, keyboardBindings.coreMenu, keyboardBindings.quickLoad, keyboardBindings.quickSave, keyboardBindings.speedToggle, quickBusy, status])
 
   const saveToSlot = (slot: number) => {
+    if (stateOperationBusy.current) return
+    stateOperationBusy.current = true
     setBusySlot(slot)
     void adapter.current?.saveState(slot)
       .then(saved => {
@@ -855,10 +1039,15 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
         triggerHapticFeedback()
       })
       .catch(reason => setError(reason instanceof Error ? reason.message : '保存失败。'))
-      .finally(() => setBusySlot(null))
+      .finally(() => {
+        stateOperationBusy.current = false
+        setBusySlot(null)
+      })
   }
 
   const loadFromSlot = (slot: number) => {
+    if (stateOperationBusy.current) return
+    stateOperationBusy.current = true
     setBusySlot(slot)
     void adapter.current?.loadState(slot)
       .then(saved => {
@@ -867,10 +1056,15 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
         if (saved) triggerHapticFeedback()
       })
       .catch(reason => setError(reason instanceof Error ? reason.message : '读取失败。'))
-      .finally(() => setBusySlot(null))
+      .finally(() => {
+        stateOperationBusy.current = false
+        setBusySlot(null)
+      })
   }
 
   const deleteSlot = (slot: number) => {
+    if (stateOperationBusy.current) return
+    stateOperationBusy.current = true
     setBusySlot(slot)
     void adapter.current?.deleteState(slot)
       .then(() => {
@@ -879,7 +1073,10 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
         triggerHapticFeedback()
       })
       .catch(reason => setError(reason instanceof Error ? reason.message : '删除存档失败。'))
-      .finally(() => setBusySlot(null))
+      .finally(() => {
+        stateOperationBusy.current = false
+        setBusySlot(null)
+      })
   }
 
   const updateCheats = (next: CheatRule[]) => {
@@ -1008,6 +1205,19 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
           }}
           onToggleCheat={id => updateCheats(cheats.map(cheat => cheat.id === id ? { ...cheat, enabled: !cheat.enabled } : cheat))}
           onRemoveCheat={id => updateCheats(cheats.filter(cheat => cheat.id !== id))}
+          onExportGame={() => {
+            const gameId = adapter.current?.getGameId()
+            if (!gameId) throw new Error('游戏尚未准备好，不能导出。')
+            return createGameBackup(gameId, gameTitle, [cheatStorageKey])
+          }}
+          onImportGame={async json => {
+            const currentAdapter = adapter.current
+            const gameId = currentAdapter?.getGameId()
+            if (!currentAdapter || !gameId) throw new Error('游戏尚未准备好，不能导入。')
+            const summary = await restoreGameBackup(json, gameId, [cheatStorageKey])
+            setSaveStateSlots(await currentAdapter.listSaveStates())
+            return summary
+          }}
           onClose={() => setActiveTool(null)}
         />
       )}
@@ -1019,15 +1229,100 @@ function KeyboardSettings({
   bindings,
   onBind,
   onReset,
+  onImported,
   onClose,
 }: {
   bindings: KeyboardBindings
   onBind: (button: KeyboardAction, key: string) => void
   onReset: () => void
+  onImported: () => void
   onClose: () => void
 }) {
   const [capturing, setCapturing] = useState<KeyboardAction | null>(null)
   const [captureError, setCaptureError] = useState('')
+  const [backupStatus, setBackupStatus] = useState('')
+  const [backupBusy, setBackupBusy] = useState(false)
+  const [backupDownload, setBackupDownload] = useState<{ url: string; fileName: string } | null>(null)
+  const backupInput = useRef<HTMLInputElement>(null)
+  const backupDownloadUrl = useRef('')
+
+  const clearBackupDownload = () => {
+    if (backupDownloadUrl.current) URL.revokeObjectURL(backupDownloadUrl.current)
+    backupDownloadUrl.current = ''
+    setBackupDownload(null)
+  }
+
+  const offerBackupDownload = (file: File) => {
+    clearBackupDownload()
+    const url = URL.createObjectURL(file)
+    backupDownloadUrl.current = url
+    setBackupDownload({ url, fileName: file.name })
+    const link = document.createElement('a')
+    link.href = url
+    link.download = file.name
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  }
+
+  useEffect(() => () => {
+    if (backupDownloadUrl.current) URL.revokeObjectURL(backupDownloadUrl.current)
+  }, [])
+
+  const exportBackup = async () => {
+    if (backupBusy) return
+    clearBackupDownload()
+    setBackupBusy(true)
+    setBackupStatus('正在生成全量备份…')
+    try {
+      const { fileName, json, summary } = await createAppBackup()
+      const file = new File([json], fileName, { type: 'application/json' })
+      let downloaded = false
+      if (navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: '董哥的小霸王全量备份' })
+          clearBackupDownload()
+        } catch (reason) {
+          if (reason instanceof DOMException && reason.name === 'AbortError') throw reason
+          offerBackupDownload(file)
+          downloaded = true
+        }
+      } else {
+        offerBackupDownload(file)
+        downloaded = true
+      }
+      setBackupStatus(
+        `已导出 ${summary.gameCount} 个游戏、${summary.saveStateCount} 个存档槽位和 ${summary.settingCount} 项配置。${downloaded ? '若没有自动保存，请点击下方链接。' : ''}`,
+      )
+    } catch (reason) {
+      if (reason instanceof DOMException && reason.name === 'AbortError') {
+        setBackupStatus('已取消导出。')
+      } else {
+        setBackupStatus(reason instanceof Error ? reason.message : '导出备份失败。')
+      }
+    } finally {
+      setBackupBusy(false)
+    }
+  }
+
+  const importBackup = async (file: File) => {
+    if (backupBusy) return
+    if (file.size > 192 * 1024 * 1024) {
+      setBackupStatus('备份文件超过 192 MB，无法导入。')
+      return
+    }
+    setBackupBusy(true)
+    setBackupStatus('正在校验并导入备份…')
+    try {
+      const summary = await restoreAppBackup(await file.text())
+      onImported()
+      setBackupStatus(`已导入 ${summary.gameCount} 个游戏、${summary.saveStateCount} 个存档槽位和 ${summary.settingCount} 项配置；重新进入游戏后全部配置生效。`)
+    } catch (reason) {
+      setBackupStatus(reason instanceof Error ? reason.message : '导入备份失败。')
+    } finally {
+      setBackupBusy(false)
+    }
+  }
 
   useEffect(() => {
     if (!capturing) return
@@ -1060,10 +1355,10 @@ function KeyboardSettings({
       <section className="keyboard-settings" role="dialog" aria-modal="true" aria-labelledby="keyboard-settings-title">
         <div className="keyboard-settings-heading">
           <div>
-            <span>PLAYER 1</span>
-            <h2 id="keyboard-settings-title">键位设置</h2>
+            <span>8-BIT SYSTEM</span>
+            <h2 id="keyboard-settings-title">系统设置</h2>
           </div>
-          <button aria-label="关闭键位设置" onClick={onClose}>×</button>
+          <button aria-label="关闭系统设置" onClick={onClose}>×</button>
         </div>
         <div className="binding-sections">
           {bindingGroups.map(group => (
@@ -1089,6 +1384,32 @@ function KeyboardSettings({
               </div>
             </section>
           ))}
+          <section className="binding-section backup-section" aria-label="数据备份">
+            <div className="binding-section-heading">
+              <h3>数据备份</h3>
+              <span>ALL GAMES</span>
+            </div>
+            <div className="backup-actions">
+              <button type="button" disabled={backupBusy} onClick={() => void exportBackup()}>导出全部</button>
+              <button type="button" disabled={backupBusy} onClick={() => backupInput.current?.click()}>导入备份</button>
+              <input
+                ref={backupInput}
+                type="file"
+                accept="application/json,.json"
+                onChange={event => {
+                  const file = event.currentTarget.files?.[0]
+                  event.currentTarget.value = ''
+                  if (file) void importBackup(file)
+                }}
+              />
+            </div>
+            <p className="backup-status" aria-live="polite">
+              {backupStatus || '统一备份全部游戏存档、缩略图、金手指和键位配置；导入不会删除现有其他槽位。'}
+              {backupDownload && (
+                <a href={backupDownload.url} download={backupDownload.fileName}>点此保存备份文件</a>
+              )}
+            </p>
+          </section>
         </div>
         <div className="keyboard-settings-footer">
           <p>{captureError || (capturing ? '按下新按键，Esc 取消' : '点击任意键位后按下新按键')}</p>
@@ -1180,6 +1501,7 @@ export default function App() {
           bindings={keyboardBindings}
           onBind={bindKeyboardKey}
           onReset={() => saveKeyboardBindings({ ...defaultKeyboardBindings })}
+          onImported={() => setKeyboardBindings(loadKeyboardBindings())}
           onClose={() => setShowKeyboardSettings(false)}
         />
       )}

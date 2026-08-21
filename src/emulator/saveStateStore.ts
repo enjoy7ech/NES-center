@@ -1,3 +1,5 @@
+import { isCurrentGameId } from './gameIdentity'
+
 export type SaveStateSlot = {
   gameId: string
   slot: number
@@ -10,6 +12,8 @@ type SaveStateRecord = SaveStateSlot & {
   data: Uint8Array
   virtualPath: string
 }
+
+export type SaveStateBackupRecord = Omit<SaveStateRecord, 'id'>
 
 const DATABASE_NAME = 'fc-center-saves'
 const STORE_NAME = 'save-states'
@@ -31,6 +35,56 @@ function openDatabase() {
 
 function slotId(gameId: string, slot: number) {
   return `${gameId}:${slot}`
+}
+
+async function readAllRecords(database: IDBDatabase) {
+  return new Promise<SaveStateRecord[]>((resolve, reject) => {
+    const request = database.transaction(STORE_NAME).objectStore(STORE_NAME).getAll()
+    request.onsuccess = () => resolve(request.result as SaveStateRecord[])
+    request.onerror = () => reject(request.error ?? new Error('读取存档失败。'))
+  })
+}
+
+function normalizeRecords(records: SaveStateRecord[]) {
+  const normalized = new Map<string, SaveStateRecord>()
+  for (const record of records) {
+    if (record.slot < -1 || record.slot >= 9 || !isCurrentGameId(record.gameId)) continue
+    const gameId = record.gameId
+    const id = slotId(gameId, record.slot)
+    const candidate = { ...record, id, gameId }
+    const previous = normalized.get(id)
+    if (!previous || candidate.updatedAt >= previous.updatedAt) normalized.set(id, candidate)
+  }
+  return [...normalized.values()]
+}
+
+export async function removeStaleSaveStateData(staleGameIds: ReadonlySet<string> = new Set()): Promise<void> {
+  const database = await openDatabase()
+  try {
+    const records = await readAllRecords(database)
+    const normalized = normalizeRecords(records)
+    const normalizedIds = new Set(normalized.map(record => record.id))
+    const needsCleanup = records.some(record => (
+      record.slot < -1
+      || record.slot >= 9
+      || !isCurrentGameId(record.gameId)
+      || staleGameIds.has(record.gameId)
+      || record.id !== slotId(record.gameId, record.slot)
+      || !normalizedIds.has(record.id)
+    ))
+    if (!needsCleanup && !staleGameIds.size) return
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(STORE_NAME, 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+      records.forEach(record => store.delete(record.id))
+      normalized.filter(record => !staleGameIds.has(record.gameId)).forEach(record => store.put(record))
+      transaction.oncomplete = () => resolve()
+      transaction.onerror = () => reject(transaction.error ?? new Error('清理陈旧存档失败。'))
+      transaction.onabort = () => reject(transaction.error ?? new Error('清理陈旧存档已中止。'))
+    })
+  } finally {
+    database.close()
+  }
 }
 
 export async function writeSaveState(
@@ -84,15 +138,55 @@ export async function deleteSaveState(gameId: string, slot: number): Promise<voi
 }
 
 export async function listSaveStates(gameId: string): Promise<SaveStateSlot[]> {
+  await removeStaleSaveStateData()
   const database = await openDatabase()
-  const records = await new Promise<SaveStateRecord[]>((resolve, reject) => {
-    const request = database.transaction(STORE_NAME).objectStore(STORE_NAME).getAll()
-    request.onsuccess = () => resolve(request.result as SaveStateRecord[])
-    request.onerror = () => reject(request.error ?? new Error('读取存档列表失败。'))
-  })
+  const records = await readAllRecords(database)
   database.close()
   return records
     .filter(record => record.gameId === gameId)
     .map(({ gameId: id, slot, updatedAt, thumbnail }) => ({ gameId: id, slot, updatedAt, thumbnail }))
     .sort((left, right) => left.slot - right.slot)
+}
+
+export async function exportAllSaveStates(): Promise<SaveStateBackupRecord[]> {
+  await removeStaleSaveStateData()
+  const database = await openDatabase()
+  const records = await readAllRecords(database)
+  database.close()
+  return records.map(({ gameId, slot, updatedAt, thumbnail, data, virtualPath }) => ({
+    gameId,
+    slot,
+    updatedAt,
+    thumbnail,
+    data: data.slice(),
+    virtualPath,
+  }))
+}
+
+export async function importAllSaveStates(records: SaveStateBackupRecord[]): Promise<void> {
+  const normalizedRecords = normalizeRecords(records.map(record => ({
+    ...record,
+    id: slotId(record.gameId, record.slot),
+  })))
+  if (!normalizedRecords.length) return
+  await removeStaleSaveStateData()
+  const database = await openDatabase()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(STORE_NAME, 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+      normalizedRecords.forEach(record => {
+        store.put({
+          ...record,
+          id: slotId(record.gameId, record.slot),
+          data: record.data.slice(),
+        } satisfies SaveStateRecord)
+      })
+      transaction.oncomplete = () => resolve()
+      transaction.onerror = () => reject(transaction.error ?? new Error('导入存档失败。'))
+      transaction.onabort = () => reject(transaction.error ?? new Error('导入存档已中止。'))
+    })
+  } finally {
+    database.close()
+  }
 }
