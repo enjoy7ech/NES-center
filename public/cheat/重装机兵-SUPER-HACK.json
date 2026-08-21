@@ -84,6 +84,12 @@
       "name": "女战士经验 9,999,999",
       "code": "64CF:7F+64D0:96+64D1:98",
       "enabled": false
+    },
+    {
+      "id": "item-drop-100",
+      "name": "战利品掉落率 100%",
+      "code": "OZSZZZAX+AASZLXTZ+XTSZGZES",
+      "enabled": false
     }
   ]
 }
