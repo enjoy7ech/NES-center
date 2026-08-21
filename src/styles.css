@@ -143,7 +143,7 @@ kbd { min-width: 28px; border: 1px solid var(--separator); border-bottom-color: 
 .signal-dot { width: 8px; height: 8px; margin-bottom: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 6px rgba(229,173,84,.1); }
 
 .side-controls { display: flex; align-items: center; justify-content: center; }
-.d-pad { display: grid; width: 126px; height: 126px; grid-template: repeat(3, 1fr) / repeat(3, 1fr); justify-self: start; }
+.d-pad { display: grid; width: 126px; height: 126px; grid-template: repeat(3, 1fr) / repeat(3, 1fr); justify-self: start; touch-action: none; }
 .d-pad .control-button { z-index: 1; border: 0; color: var(--secondary); background: var(--surface); font-size: 16px; font-weight: 750; cursor: pointer; touch-action: none; }
 .d-pad .control-button { min-width: 0; min-height: 0; }
 .d-pad .control-button:first-child { grid-area: 1 / 2; border-radius: 8px 8px 0 0; }
@@ -373,6 +373,35 @@ kbd { min-width: 28px; border: 1px solid var(--separator); border-bottom-color: 
   .action-controls { width: 112px; height: 86px; }
   .action-controls .action-button { min-width: 46px; min-height: 46px; }
   .utility-button { min-height: 22px; }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 640px) {
+  .app-shell { padding-inline: max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-right)); }
+  .console { grid-template-columns: clamp(120px, 19vw, 136px) minmax(0, 1fr) clamp(120px, 19vw, 136px); gap: clamp(4px, 1vw, 8px); }
+  .quick-tools button { height: 34px; min-height: 34px; }
+  .d-pad { width: clamp(120px, 19vw, 136px); height: clamp(120px, 19vw, 136px); }
+  .action-controls { gap: 12px; }
+  .action-button { min-width: clamp(56px, 9vw, 64px); min-height: clamp(56px, 9vw, 64px); font-size: 15px; }
+  .center-controls { gap: 12px; }
+  .utility-button { min-width: 76px; min-height: 40px; font-size: 10px; }
+}
+
+@media (pointer: coarse) and (orientation: portrait) and (max-width: 900px) {
+  .quick-tools button { height: 36px; min-height: 36px; }
+  .console { grid-template-rows: auto auto clamp(164px, 24vh, 200px) auto; grid-template-rows: auto auto clamp(164px, 24svh, 200px) auto; }
+  .d-pad { width: clamp(126px, 36vw, 144px); height: clamp(126px, 36vw, 144px); }
+  .action-controls { width: clamp(134px, 38vw, 156px); height: clamp(108px, 31vw, 128px); }
+  .action-controls .action-button { min-width: clamp(58px, 16vw, 68px); min-height: clamp(58px, 16vw, 68px); font-size: 15px; }
+  .utility-button { min-width: clamp(82px, 24vw, 98px); min-height: 40px; font-size: 9px; }
+}
+
+@media (pointer: coarse) and (orientation: portrait) and (max-height: 620px) {
+  .console { grid-template-rows: auto auto 138px auto; }
+  .quick-tools button { height: 32px; min-height: 32px; }
+  .d-pad { width: 120px; height: 120px; }
+  .action-controls { width: 126px; height: 100px; }
+  .action-controls .action-button { min-width: 56px; min-height: 56px; }
+  .utility-button { min-height: 36px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

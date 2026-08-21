@@ -304,16 +304,9 @@ export class RetroArchAdapter implements EmulatorAdapter {
       this.module._cmd_take_screenshot?.()
       const thumbnail = await this.captureThumbnail()
 
+      this.removeStateFiles(this.module.FS)
       this.module._cmd_save_state()
-      await new Promise(resolve => window.setTimeout(resolve, 140))
-      let stateFilePath = SAVE_STATE_PATH
-      let data: Uint8Array
-      try {
-        data = this.module.FS.readFile(SAVE_STATE_PATH)
-      } catch {
-        stateFilePath = this.findStateFile(this.module.FS) ?? SAVE_STATE_PATH
-        data = this.module.FS.readFile(stateFilePath)
-      }
+      const data = await this.waitForFreshStateFile(this.module.FS)
       // Persist the canonical load target even when an older core happened to
       // create the source state under a core-specific subdirectory.
       return await writeSaveState(this.gameId, slot, data, thumbnail, SAVE_STATE_PATH)
@@ -556,6 +549,35 @@ export class RetroArchAdapter implements EmulatorAdapter {
     }
   }
 
+  private removeStateFiles(fileSystem: NonNullable<RetroArchModule['FS']>) {
+    for (const path of this.findStateFiles(fileSystem)) {
+      try {
+        fileSystem.unlink?.(path)
+      } catch {
+        // A prior state may already have been replaced or removed.
+      }
+    }
+  }
+
+  private async waitForFreshStateFile(fileSystem: NonNullable<RetroArchModule['FS']>) {
+    const deadline = performance.now() + 2500
+    while (performance.now() < deadline) {
+      const paths = this.findStateFiles(fileSystem).sort((left, right) => (
+        Number(right === SAVE_STATE_PATH) - Number(left === SAVE_STATE_PATH)
+      ))
+      for (const path of paths) {
+        try {
+          const data = fileSystem.readFile(path)
+          if (data.byteLength > 0) return data.slice()
+        } catch {
+          // The core may still be writing the new state; retry shortly.
+        }
+      }
+      await new Promise(resolve => window.setTimeout(resolve, 25))
+    }
+    throw new Error('模拟器没有及时生成新的存档，请重试。')
+  }
+
   private async waitForRenderedFrames(count: number) {
     for (let frame = 0; frame < count; frame += 1) {
       await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
@@ -625,9 +647,10 @@ export class RetroArchAdapter implements EmulatorAdapter {
     }
   }
 
-  private findStateFile(fileSystem: NonNullable<RetroArchModule['FS']>) {
+  private findStateFiles(fileSystem: NonNullable<RetroArchModule['FS']>) {
     const pending = ['/', SAVE_STATE_DIRECTORY, '/home', '/tmp']
     const visited = new Set<string>()
+    const states: string[] = []
     while (pending.length > 0 && visited.size < 400) {
       const directory = pending.pop()!
       if (visited.has(directory)) continue
@@ -646,14 +669,14 @@ export class RetroArchAdapter implements EmulatorAdapter {
           if (fileSystem.isDir(stat.mode)) {
             if (!path.startsWith('/dev') && !path.startsWith('/proc')) pending.push(path)
           } else if (/\.state\d*$/i.test(entry)) {
-            return path
+            states.push(path)
           }
         } catch {
           // Ignore virtual devices and transient files.
         }
       }
     }
-    return null
+    return states
   }
 
   private logCoreMessage(message: string) {

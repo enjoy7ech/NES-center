@@ -142,6 +142,8 @@ type ControlButtonProps = {
   onInput: (button: ControllerButton, pressed: boolean) => void
 }
 
+type DirectionButton = Extract<ControllerButton, 'up' | 'down' | 'left' | 'right'>
+
 const nativeSwitchProps = { switch: '' } as React.InputHTMLAttributes<HTMLInputElement>
 const quickSlotHoldMs = 600
 
@@ -256,6 +258,151 @@ function ControlButton({ button, label, className = '', onInput }: ControlButton
       />
       <span className="control-button-text" aria-hidden="true">{label}</span>
     </label>
+  )
+}
+
+function DirectionalPad({ onInput }: { onInput: (button: ControllerButton, pressed: boolean) => void }) {
+  const element = useRef<HTMLDivElement>(null)
+  const activePointer = useRef<number | null>(null)
+  const pointerDirections = useRef(new Set<DirectionButton>())
+  const keyboardDirections = useRef(new Set<DirectionButton>())
+  const emittedDirections = useRef(new Set<DirectionButton>())
+  const inputHandler = useRef(onInput)
+  const [pressedDirections, setPressedDirections] = useState<Set<DirectionButton>>(() => new Set())
+  inputHandler.current = onInput
+
+  const applyDirections = () => {
+    const next = new Set<DirectionButton>([...pointerDirections.current, ...keyboardDirections.current])
+    for (const direction of emittedDirections.current) {
+      if (!next.has(direction)) inputHandler.current(direction, false)
+    }
+    for (const direction of next) {
+      if (!emittedDirections.current.has(direction)) inputHandler.current(direction, true)
+    }
+    emittedDirections.current = next
+    setPressedDirections(new Set(next))
+  }
+
+  const directionsAt = (clientX: number, clientY: number) => {
+    const rect = element.current?.getBoundingClientRect()
+    if (!rect) return [] as DirectionButton[]
+    const x = (clientX - (rect.left + rect.width / 2)) / (rect.width / 2)
+    const y = (clientY - (rect.top + rect.height / 2)) / (rect.height / 2)
+    if (Math.hypot(x, y) < 0.24) return [] as DirectionButton[]
+
+    const sector = (Math.round(Math.atan2(y, x) / (Math.PI / 4)) + 8) % 8
+    const sectors: DirectionButton[][] = [
+      ['right'], ['right', 'down'], ['down'], ['down', 'left'],
+      ['left'], ['left', 'up'], ['up'], ['up', 'right'],
+    ]
+    return sectors[sector]
+  }
+
+  const updatePointer = (clientX: number, clientY: number) => {
+    const next = new Set(directionsAt(clientX, clientY))
+    const changed = next.size !== pointerDirections.current.size
+      || [...next].some(direction => !pointerDirections.current.has(direction))
+    if (!changed) return
+    pointerDirections.current = next
+    applyDirections()
+    if (next.size) triggerHapticFeedback()
+  }
+
+  const releasePointer = (pointerId?: number) => {
+    if (pointerId !== undefined && activePointer.current !== pointerId) return
+    const capturedPointer = activePointer.current
+    activePointer.current = null
+    pointerDirections.current.clear()
+    applyDirections()
+    if (capturedPointer !== null && element.current?.hasPointerCapture(capturedPointer)) {
+      element.current.releasePointerCapture(capturedPointer)
+    }
+  }
+
+  const setKeyboardDirection = (direction: DirectionButton, pressed: boolean) => {
+    if (pressed) keyboardDirections.current.add(direction)
+    else keyboardDirections.current.delete(direction)
+    applyDirections()
+  }
+
+  useEffect(() => {
+    const releaseActivePointer = (event: PointerEvent) => releasePointer(event.pointerId)
+    const releaseAll = () => {
+      activePointer.current = null
+      pointerDirections.current.clear()
+      keyboardDirections.current.clear()
+      applyDirections()
+    }
+    window.addEventListener('pointerup', releaseActivePointer, true)
+    window.addEventListener('pointercancel', releaseActivePointer, true)
+    window.addEventListener('blur', releaseAll)
+    window.addEventListener('pagehide', releaseAll)
+    document.addEventListener('visibilitychange', releaseAll)
+    return () => {
+      window.removeEventListener('pointerup', releaseActivePointer, true)
+      window.removeEventListener('pointercancel', releaseActivePointer, true)
+      window.removeEventListener('blur', releaseAll)
+      window.removeEventListener('pagehide', releaseAll)
+      document.removeEventListener('visibilitychange', releaseAll)
+      for (const direction of emittedDirections.current) inputHandler.current(direction, false)
+    }
+  }, [])
+
+  const directionKey = (direction: DirectionButton, label: string) => (
+    <label
+      className={`control-button${pressedDirections.has(direction) ? ' is-pressed' : ''}`}
+      role="button"
+      tabIndex={0}
+      aria-label={controlLabels[direction]}
+      aria-pressed={pressedDirections.has(direction)}
+      onKeyDown={event => {
+        if (event.repeat || (event.key !== 'Enter' && event.key !== ' ')) return
+        event.preventDefault()
+        setKeyboardDirection(direction, true)
+      }}
+      onKeyUp={event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        setKeyboardDirection(direction, false)
+      }}
+      onContextMenu={event => event.preventDefault()}
+    >
+      <input {...nativeSwitchProps} className="ios-haptic-switch" type="checkbox" tabIndex={-1} aria-hidden="true" />
+      <span className="control-button-text" aria-hidden="true">{label}</span>
+    </label>
+  )
+
+  return (
+    <div
+      ref={element}
+      className="d-pad"
+      aria-label="方向键，可按住滑动切换方向"
+      onPointerDown={event => {
+        if (event.button !== 0 || activePointer.current !== null) return
+        event.preventDefault()
+        activePointer.current = event.pointerId
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId)
+        } catch {
+          // Window-level listeners still release input if pointer capture is unavailable.
+        }
+        updatePointer(event.clientX, event.clientY)
+      }}
+      onPointerMove={event => {
+        if (activePointer.current !== event.pointerId) return
+        event.preventDefault()
+        updatePointer(event.clientX, event.clientY)
+      }}
+      onPointerUp={event => releasePointer(event.pointerId)}
+      onPointerCancel={event => releasePointer(event.pointerId)}
+      onLostPointerCapture={() => releasePointer()}
+    >
+      {directionKey('up', '↑')}
+      {directionKey('left', '←')}
+      <span className="d-pad-center" aria-hidden="true" />
+      {directionKey('right', '→')}
+      {directionKey('down', '↓')}
+    </div>
   )
 }
 
@@ -1120,13 +1267,7 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
     <main className="app-shell">
       <section className="console" aria-label="FC 模拟器">
         <div className="side-controls side-controls-left">
-          <div className="d-pad" aria-label="方向键">
-            <ControlButton button="up" label="↑" onInput={sendButton} />
-            <ControlButton button="left" label="←" onInput={sendButton} />
-            <span className="d-pad-center" />
-            <ControlButton button="right" label="→" onInput={sendButton} />
-            <ControlButton button="down" label="↓" onInput={sendButton} />
-          </div>
+          <DirectionalPad onInput={sendButton} />
         </div>
 
         <div className="game-column">
