@@ -283,19 +283,16 @@ function DirectionalPad({ onInput }: { onInput: (button: ControllerButton, press
     setPressedDirections(new Set(next))
   }
 
-  const directionsAt = (clientX: number, clientY: number) => {
+  const directionsAt = (clientX: number, clientY: number): DirectionButton[] => {
     const rect = element.current?.getBoundingClientRect()
-    if (!rect) return [] as DirectionButton[]
+    if (!rect) return []
     const x = (clientX - (rect.left + rect.width / 2)) / (rect.width / 2)
     const y = (clientY - (rect.top + rect.height / 2)) / (rect.height / 2)
-    if (Math.hypot(x, y) < 0.24) return [] as DirectionButton[]
+    const radius = Math.hypot(x, y)
+    if (radius > 1 || radius < 0.16) return []
 
-    const sector = (Math.round(Math.atan2(y, x) / (Math.PI / 4)) + 8) % 8
-    const sectors: DirectionButton[][] = [
-      ['right'], ['right', 'down'], ['down'], ['down', 'left'],
-      ['left'], ['left', 'up'], ['up'], ['up', 'right'],
-    ]
-    return sectors[sector]
+    if (Math.abs(x) >= Math.abs(y)) return [x >= 0 ? 'right' : 'left']
+    return [y >= 0 ? 'down' : 'up']
   }
 
   const updatePointer = (clientX: number, clientY: number) => {
@@ -376,7 +373,7 @@ function DirectionalPad({ onInput }: { onInput: (button: ControllerButton, press
     <div
       ref={element}
       className="d-pad"
-      aria-label="方向键，可按住滑动切换方向"
+      aria-label="圆盘方向键，可按住滑动切换单个方向"
       onPointerDown={event => {
         if (event.button !== 0 || activePointer.current !== null) return
         event.preventDefault()

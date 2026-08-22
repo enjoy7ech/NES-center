@@ -286,7 +286,7 @@ export class RetroArchAdapter implements EmulatorAdapter {
     if (!this.runtimeReady || !this.module?._cmd_save_state || !this.module.FS) {
       throw new Error('游戏尚未准备好，不能存档。')
     }
-    const thumbnail = this.captureCanvasThumbnail()
+    const thumbnail = await this.captureCanvasThumbnail()
     this.removeStateFiles(this.module.FS)
     this.module._cmd_save_state()
     const data = await this.waitForFreshStateFile(this.module.FS)
@@ -501,12 +501,46 @@ export class RetroArchAdapter implements EmulatorAdapter {
     throw new Error('模拟器没有及时生成新的存档，请重试。')
   }
 
-  private captureCanvasThumbnail() {
-    if (!this.canvas) return ''
-    return this.renderThumbnail(this.canvas)
+  private async captureCanvasThumbnail() {
+    const canvas = this.canvas
+    if (!canvas) return ''
+
+    // At fast-forward speeds WebGL may clear its drawing buffer immediately
+    // after compositing. A canvas stream exposes the composed frames without
+    // pausing the core or changing its speed.
+    if (typeof canvas.captureStream === 'function') {
+      const stream = canvas.captureStream(30)
+      const video = document.createElement('video')
+      video.muted = true
+      video.playsInline = true
+      video.srcObject = stream
+      try {
+        await video.play()
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+          await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
+          if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) continue
+          const thumbnail = this.renderThumbnail(video, true)
+          if (thumbnail) return thumbnail
+        }
+      } catch {
+        // Some mobile browsers do not expose canvas capture streams.
+      } finally {
+        stream.getTracks().forEach(track => track.stop())
+        video.srcObject = null
+      }
+    }
+
+    // Fallback for browsers without captureStream. Retry several rendered
+    // frames before accepting a potentially dark but otherwise valid scene.
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
+      const thumbnail = this.renderThumbnail(canvas, true)
+      if (thumbnail) return thumbnail
+    }
+    return this.renderThumbnail(canvas)
   }
 
-  private renderThumbnail(source: CanvasImageSource) {
+  private renderThumbnail(source: CanvasImageSource, requireVisiblePixels = false) {
     try {
       const preview = document.createElement('canvas')
       preview.width = 256
@@ -517,12 +551,14 @@ export class RetroArchAdapter implements EmulatorAdapter {
       context.fillStyle = '#050606'
       context.fillRect(0, 0, preview.width, preview.height)
       context.drawImage(source, 0, 0, preview.width, preview.height)
-      const pixels = context.getImageData(0, 0, preview.width, preview.height).data
-      let visibleSamples = 0
-      for (let index = 0; index < pixels.length; index += 64) {
-        if (pixels[index] + pixels[index + 1] + pixels[index + 2] > 36) visibleSamples++
+      if (requireVisiblePixels) {
+        const pixels = context.getImageData(0, 0, preview.width, preview.height).data
+        let visibleSamples = 0
+        for (let index = 0; index < pixels.length; index += 64) {
+          if (pixels[index] + pixels[index + 1] + pixels[index + 2] > 36) visibleSamples++
+        }
+        if (visibleSamples < 20) return ''
       }
-      if (visibleSamples < 20) return ''
       return preview.toDataURL('image/jpeg', .72)
     } catch {
       return ''

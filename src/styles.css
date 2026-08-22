@@ -143,15 +143,14 @@ kbd { min-width: 28px; border: 1px solid var(--separator); border-bottom-color: 
 .signal-dot { width: 8px; height: 8px; margin-bottom: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 6px rgba(229,173,84,.1); }
 
 .side-controls { display: flex; align-items: center; justify-content: center; }
-.d-pad { display: grid; width: 126px; height: 126px; grid-template: repeat(3, 1fr) / repeat(3, 1fr); justify-self: start; touch-action: none; }
-.d-pad .control-button { z-index: 1; border: 0; color: var(--secondary); background: var(--surface); font-size: 16px; font-weight: 750; cursor: pointer; touch-action: none; }
-.d-pad .control-button { min-width: 0; min-height: 0; }
-.d-pad .control-button:first-child { grid-area: 1 / 2; border-radius: 8px 8px 0 0; }
-.d-pad .control-button:nth-child(2) { grid-area: 2 / 1; border-radius: 8px 0 0 8px; }
-.d-pad .control-button:nth-child(4) { grid-area: 2 / 3; border-radius: 0 8px 8px 0; }
-.d-pad .control-button:nth-child(5) { grid-area: 3 / 2; border-radius: 0 0 8px 8px; }
-.d-pad .control-button.is-pressed { color: var(--accent); background: var(--surface-elevated); }
-.d-pad-center { grid-area: 2 / 2; background: var(--surface); }
+.d-pad { position: relative; width: 126px; height: 126px; overflow: hidden; border: 3px solid #2c3232; border-radius: 50%; justify-self: start; background: radial-gradient(circle at 36% 30%, #303637, #171b1c 62%, #0b0e0f 100%); box-shadow: inset 4px 4px 8px rgba(255,255,255,.06), inset -6px -7px 10px rgba(0,0,0,.38), 0 5px 0 rgba(0,0,0,.3); touch-action: none; }
+.d-pad::before { content: ''; position: absolute; inset: 10%; border: 1px solid rgba(255,255,255,.06); border-radius: 50%; pointer-events: none; }
+.d-pad .control-button { position: absolute; z-index: 1; width: 38%; height: 38%; min-width: 0; min-height: 0; border: 0; border-radius: 50%; color: var(--secondary); background: transparent; font-size: 17px; font-weight: 800; cursor: pointer; touch-action: none; }
+.d-pad .control-button:first-child { top: 3%; left: 31%; }
+.d-pad .control-button:nth-child(2) { top: 31%; left: 3%; }
+.d-pad .control-button:nth-child(4) { top: 31%; right: 3%; }
+.d-pad .control-button:nth-child(5) { bottom: 3%; left: 31%; }
+.d-pad-center { position: absolute; z-index: 2; top: 38%; left: 38%; width: 24%; height: 24%; border: 1px solid rgba(255,255,255,.06); border-radius: 50%; pointer-events: none; background: #171c1d; box-shadow: inset 2px 2px 3px rgba(255,255,255,.05), 2px 3px 5px rgba(0,0,0,.32); }
 .center-controls, .action-controls { display: flex; align-items: center; gap: 10px; }
 .center-controls { justify-content: center; }
 .action-controls { justify-content: center; }
@@ -349,13 +348,9 @@ kbd { min-width: 28px; border: 1px solid var(--separator); border-bottom-color: 
   .side-controls { align-self: stretch; }
   .side-controls-left { grid-column: 1; grid-row: 3; }
   .side-controls-right { grid-column: 2; grid-row: 3; }
-  .d-pad { width: clamp(104px, 31vw, 130px); height: clamp(104px, 31vw, 130px); filter: drop-shadow(0 5px 0 rgba(51,53,50,.32)); }
-  .d-pad .control-button, .d-pad-center { background: #262b2b; }
+  .d-pad { width: clamp(104px, 31vw, 130px); height: clamp(104px, 31vw, 130px); border-color: #444944; background: radial-gradient(circle at 36% 30%, #3a403e, #242928 62%, #171b1b 100%); filter: drop-shadow(0 5px 0 rgba(51,53,50,.32)); }
+  .d-pad .control-button { background: transparent; }
   .d-pad .control-button { color: #8d9591; }
-  .d-pad .control-button:first-child { border-radius: 6px 6px 1px 1px; }
-  .d-pad .control-button:nth-child(2) { border-radius: 6px 1px 1px 6px; }
-  .d-pad .control-button:nth-child(4) { border-radius: 1px 6px 6px 1px; }
-  .d-pad .control-button:nth-child(5) { border-radius: 1px 1px 6px 6px; }
   .action-controls { position: relative; width: clamp(118px, 34vw, 142px); height: clamp(94px, 28vw, 116px); }
   .action-controls .action-button { position: absolute; min-width: clamp(50px, 14vw, 60px); min-height: clamp(50px, 14vw, 60px); border: 3px solid rgba(73,36,49,.34); color: #eadce1; background: #7e3150; box-shadow: inset 3px 3px 0 rgba(255,255,255,.1), 0 5px 0 #572139; font-size: 13px; }
   .action-controls .action-button:first-child { bottom: 5px; left: 5px; background: #71304d; }
@@ -379,9 +374,12 @@ kbd { min-width: 28px; border: 1px solid var(--separator); border-bottom-color: 
   .app-shell { padding-inline: max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-right)); }
   .console { grid-template-columns: clamp(120px, 19vw, 136px) minmax(0, 1fr) clamp(120px, 19vw, 136px); gap: clamp(4px, 1vw, 8px); }
   .quick-tools button { height: 34px; min-height: 34px; }
+  .side-controls { transform: translateY(clamp(28px, 10svh, 56px)); }
   .d-pad { width: clamp(120px, 19vw, 136px); height: clamp(120px, 19vw, 136px); }
-  .action-controls { gap: 12px; }
-  .action-button { min-width: clamp(56px, 9vw, 64px); min-height: clamp(56px, 9vw, 64px); font-size: 15px; }
+  .action-controls { position: relative; width: 100%; height: clamp(88px, 24svh, 108px); gap: 0; }
+  .action-controls .action-button { position: absolute; min-width: clamp(56px, 9vw, 64px); min-height: clamp(56px, 9vw, 64px); font-size: 15px; }
+  .action-controls .action-button:first-child { bottom: 4px; left: 0; }
+  .action-controls .action-button:last-child { top: 4px; right: 0; }
   .center-controls { gap: 12px; }
   .utility-button { min-width: 76px; min-height: 40px; font-size: 10px; }
 }
