@@ -95,24 +95,28 @@ export async function writeSaveState(
   virtualPath: string,
 ): Promise<SaveStateSlot> {
   const database = await openDatabase()
-  const record: SaveStateRecord = {
-    id: slotId(gameId, slot),
-    gameId,
-    slot,
-    updatedAt: Date.now(),
-    thumbnail,
-    data: data.slice(),
-    virtualPath,
-  }
+  try {
+    const record: SaveStateRecord = {
+      id: slotId(gameId, slot),
+      gameId,
+      slot,
+      updatedAt: Date.now(),
+      thumbnail,
+      data: data.slice(),
+      virtualPath,
+    }
 
-  await new Promise<void>((resolve, reject) => {
-    const transaction = database.transaction(STORE_NAME, 'readwrite')
-    transaction.objectStore(STORE_NAME).put(record)
-    transaction.oncomplete = () => resolve()
-    transaction.onerror = () => reject(transaction.error ?? new Error('写入存档失败。'))
-  })
-  database.close()
-  return { gameId, slot, updatedAt: record.updatedAt, thumbnail }
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(STORE_NAME, 'readwrite')
+      transaction.objectStore(STORE_NAME).put(record)
+      transaction.oncomplete = () => resolve()
+      transaction.onerror = () => reject(transaction.error ?? new Error('写入存档失败。'))
+      transaction.onabort = () => reject(transaction.error ?? new Error('写入存档已中止。'))
+    })
+    return { gameId, slot, updatedAt: record.updatedAt, thumbnail }
+  } finally {
+    database.close()
+  }
 }
 
 export async function readSaveState(gameId: string, slot: number): Promise<SaveStateRecord | null> {

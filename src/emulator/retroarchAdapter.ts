@@ -23,7 +23,6 @@ type RetroArchModule = {
   _cmd_unpause?: () => void
   _cmd_save_state?: () => void
   _cmd_load_state?: () => void
-  _cmd_take_screenshot?: () => void
   _cmd_cheat_toggle?: () => void
   _cmd_cheat_set_code?: (index: number, pointer: number) => void
   _cmd_cheat_toggle_index?: (apply: boolean, index: number) => void
@@ -36,9 +35,6 @@ type RetroArchModule = {
     mkdir: (path: string) => void
     writeFile: (path: string, data: Uint8Array) => void
     readFile: (path: string) => Uint8Array
-    readdir: (path: string) => string[]
-    stat: (path: string) => { mode: number }
-    isDir: (mode: number) => boolean
     unlink?: (path: string) => void
   }
 }
@@ -62,8 +58,9 @@ const SAVE_STATE_DIRECTORY = '/save-states'
 const SAVE_STATE_PATH = `${SAVE_STATE_DIRECTORY}/game.state`
 const CORE_SAVE_STATE_DIRECTORY = `${SAVE_STATE_DIRECTORY}/FCEUmm`
 const CORE_SAVE_STATE_PATH = `${CORE_SAVE_STATE_DIRECTORY}/game.state`
-const SCREENSHOT_DIRECTORY = '/screenshots'
+const SAVE_STATE_PATHS = [SAVE_STATE_PATH, CORE_SAVE_STATE_PATH] as const
 const MIN_VIRTUAL_PRESS_MS = 48
+const SAVE_STATE_TIMEOUT_MS = 8_000
 
 const keyboardMap: Record<ControllerButton, { code: string; key: string; keyCode: number }> = {
   up: { code: 'ArrowUp', key: 'ArrowUp', keyCode: 38 },
@@ -289,30 +286,13 @@ export class RetroArchAdapter implements EmulatorAdapter {
     if (!this.runtimeReady || !this.module?._cmd_save_state || !this.module.FS) {
       throw new Error('游戏尚未准备好，不能存档。')
     }
-    if (this.speedTransitionTimer !== null) {
-      await new Promise(resolve => window.setTimeout(resolve, MIN_VIRTUAL_PRESS_MS + 40))
-    }
-    const resumeFastForward = this.speed > 1
-    if (resumeFastForward) {
-      this.pressFastForwardToggle()
-      await new Promise(resolve => window.setTimeout(resolve, MIN_VIRTUAL_PRESS_MS + 24))
-      await this.waitForRenderedFrames(2)
-    }
-
-    try {
-      this.removeScreenshotFiles(this.module.FS)
-      this.module._cmd_take_screenshot?.()
-      const thumbnail = await this.captureThumbnail()
-
-      this.removeStateFiles(this.module.FS)
-      this.module._cmd_save_state()
-      const data = await this.waitForFreshStateFile(this.module.FS)
-      // Persist the canonical load target even when an older core happened to
-      // create the source state under a core-specific subdirectory.
-      return await writeSaveState(this.gameId, slot, data, thumbnail, SAVE_STATE_PATH)
-    } finally {
-      if (resumeFastForward && this.runtimeReady) this.pressFastForwardToggle()
-    }
+    const thumbnail = this.captureCanvasThumbnail()
+    this.removeStateFiles(this.module.FS)
+    this.module._cmd_save_state()
+    const data = await this.waitForFreshStateFile(this.module.FS)
+    // Persist the canonical load target even when an older core happened to
+    // create the source state under a core-specific subdirectory.
+    return writeSaveState(this.gameId, slot, data, thumbnail, SAVE_STATE_PATH)
   }
 
   public async loadState(slot: number) {
@@ -427,7 +407,6 @@ export class RetroArchAdapter implements EmulatorAdapter {
       '/home/web_user/.config/retroarch',
       SAVE_STATE_DIRECTORY,
       CORE_SAVE_STATE_DIRECTORY,
-      SCREENSHOT_DIRECTORY,
     ]) {
       try {
         fileSystem.mkdir(path)
@@ -460,7 +439,6 @@ export class RetroArchAdapter implements EmulatorAdapter {
       'savestate_auto_index = "false"',
       'sort_savestates_enable = "false"',
       'sort_savestates_by_content_enable = "false"',
-      `screenshot_directory = "${SCREENSHOT_DIRECTORY}"`,
       'rgui_show_start_screen = "false"',
       'notification_show_remap_load = "false"',
       'notification_show_fast_forward = "false"',
@@ -497,60 +475,8 @@ export class RetroArchAdapter implements EmulatorAdapter {
     this.appliedCheatCount = enabledCheats.length
   }
 
-  private async captureThumbnail() {
-    const fileSystem = this.module?.FS
-    if (fileSystem) {
-      // Screenshot creation is asynchronous. At high speed the file may be
-      // visible before its PNG bytes are complete, so retry decoding briefly.
-      for (let attempt = 0; attempt < 14; attempt += 1) {
-        const screenshotPath = this.findScreenshotFiles(fileSystem)[0]
-        if (screenshotPath) {
-          try {
-            const thumbnail = await this.resizeScreenshot(fileSystem.readFile(screenshotPath))
-            fileSystem.unlink?.(screenshotPath)
-            if (thumbnail) return thumbnail
-          } catch {
-            // The core may still be writing this PNG; retry on the next tick.
-          }
-        }
-        await new Promise(resolve => window.setTimeout(resolve, 25))
-      }
-    }
-    const canvas = this.canvas
-    if (!canvas) return ''
-    if (typeof canvas.captureStream === 'function') {
-      const stream = canvas.captureStream(30)
-      const video = document.createElement('video')
-      video.muted = true
-      video.playsInline = true
-      video.srcObject = stream
-      try {
-        await video.play()
-        await new Promise(resolve => window.setTimeout(resolve, 100))
-        const thumbnail = this.renderThumbnail(video)
-        if (thumbnail) return thumbnail
-      } catch {
-        // Fall through for browsers that block canvas stream playback.
-      } finally {
-        stream.getTracks().forEach(track => track.stop())
-        video.srcObject = null
-      }
-    }
-    return this.captureCanvasThumbnail()
-  }
-
-  private removeScreenshotFiles(fileSystem: NonNullable<RetroArchModule['FS']>) {
-    for (const path of this.findScreenshotFiles(fileSystem)) {
-      try {
-        fileSystem.unlink?.(path)
-      } catch {
-        // Stale screenshots are disposable and may already have disappeared.
-      }
-    }
-  }
-
   private removeStateFiles(fileSystem: NonNullable<RetroArchModule['FS']>) {
-    for (const path of this.findStateFiles(fileSystem)) {
+    for (const path of SAVE_STATE_PATHS) {
       try {
         fileSystem.unlink?.(path)
       } catch {
@@ -560,12 +486,9 @@ export class RetroArchAdapter implements EmulatorAdapter {
   }
 
   private async waitForFreshStateFile(fileSystem: NonNullable<RetroArchModule['FS']>) {
-    const deadline = performance.now() + 2500
+    const deadline = performance.now() + SAVE_STATE_TIMEOUT_MS
     while (performance.now() < deadline) {
-      const paths = this.findStateFiles(fileSystem).sort((left, right) => (
-        Number(right === SAVE_STATE_PATH) - Number(left === SAVE_STATE_PATH)
-      ))
-      for (const path of paths) {
+      for (const path of SAVE_STATE_PATHS) {
         try {
           const data = fileSystem.readFile(path)
           if (data.byteLength > 0) return data.slice()
@@ -573,50 +496,9 @@ export class RetroArchAdapter implements EmulatorAdapter {
           // The core may still be writing the new state; retry shortly.
         }
       }
-      await new Promise(resolve => window.setTimeout(resolve, 25))
+      await new Promise(resolve => window.setTimeout(resolve, 50))
     }
     throw new Error('模拟器没有及时生成新的存档，请重试。')
-  }
-
-  private async waitForRenderedFrames(count: number) {
-    for (let frame = 0; frame < count; frame += 1) {
-      await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
-    }
-  }
-
-  private async resizeScreenshot(png: Uint8Array) {
-    const bytes = png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength) as ArrayBuffer
-    const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
-    try {
-      return this.renderThumbnail(bitmap)
-    } finally {
-      bitmap.close()
-    }
-  }
-
-  private findScreenshotFiles(fileSystem: NonNullable<RetroArchModule['FS']>) {
-    const pending = [SCREENSHOT_DIRECTORY]
-    const screenshots: string[] = []
-    while (pending.length > 0) {
-      const directory = pending.pop()!
-      let entries: string[]
-      try {
-        entries = fileSystem.readdir(directory)
-      } catch {
-        continue
-      }
-      for (const entry of entries) {
-        if (entry === '.' || entry === '..') continue
-        const path = `${directory}/${entry}`
-        try {
-          if (fileSystem.isDir(fileSystem.stat(path).mode)) pending.push(path)
-          else if (/\.png$/i.test(entry)) screenshots.push(path)
-        } catch {
-          // Ignore transient screenshot tasks.
-        }
-      }
-    }
-    return screenshots
   }
 
   private captureCanvasThumbnail() {
@@ -645,38 +527,6 @@ export class RetroArchAdapter implements EmulatorAdapter {
     } catch {
       return ''
     }
-  }
-
-  private findStateFiles(fileSystem: NonNullable<RetroArchModule['FS']>) {
-    const pending = ['/', SAVE_STATE_DIRECTORY, '/home', '/tmp']
-    const visited = new Set<string>()
-    const states: string[] = []
-    while (pending.length > 0 && visited.size < 400) {
-      const directory = pending.pop()!
-      if (visited.has(directory)) continue
-      visited.add(directory)
-      let entries: string[]
-      try {
-        entries = fileSystem.readdir(directory)
-      } catch {
-        continue
-      }
-      for (const entry of entries) {
-        if (entry === '.' || entry === '..') continue
-        const path = directory === '/' ? `/${entry}` : `${directory}/${entry}`
-        try {
-          const stat = fileSystem.stat(path)
-          if (fileSystem.isDir(stat.mode)) {
-            if (!path.startsWith('/dev') && !path.startsWith('/proc')) pending.push(path)
-          } else if (/\.state\d*$/i.test(entry)) {
-            states.push(path)
-          }
-        } catch {
-          // Ignore virtual devices and transient files.
-        }
-      }
-    }
-    return states
   }
 
   private logCoreMessage(message: string) {
