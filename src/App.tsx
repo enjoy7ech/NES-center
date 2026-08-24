@@ -1343,6 +1343,11 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
             ))}
           </div>
         </div>
+
+        <div className="console-brand" aria-label="Nintendo Entertainment System">
+          <strong>NES</strong>
+          <span>Nintendo<br />Entertainment<br />System</span>
+        </div>
       </section>
 
       {error && <div className="notice notice-error" role="alert">{error}</div>}

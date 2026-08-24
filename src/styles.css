@@ -126,6 +126,7 @@ kbd { min-width: 28px; border: 1px solid var(--separator); border-bottom-color: 
 .keyboard-settings-footer button:hover { color: var(--primary); }
 
 .console { display: grid; min-height: 0; grid-template-columns: clamp(120px, 15vw, 180px) minmax(0, 1fr) clamp(130px, 15vw, 180px); align-items: center; gap: clamp(14px, 2.5vw, 32px); }
+.console-brand { display: none; }
 .game-column { display: grid; width: 100%; min-width: 0; height: 100%; min-height: 0; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px; }
 .quick-tools { display: flex; min-width: 0; align-items: center; justify-content: center; gap: 7px; }
 .quick-tools button { position: relative; display: inline-flex; height: 34px; overflow: hidden; align-items: center; justify-content: center; gap: 6px; border: 2px solid #383d3d; border-radius: 3px; padding: 0 12px; color: #bbbfb9; background: #121516; box-shadow: inset 0 0 0 2px #070909, 0 3px 0 #050606; cursor: pointer; font-size: 10px; font-weight: 800; letter-spacing: .06em; }
@@ -336,9 +337,12 @@ kbd { min-width: 28px; border: 1px solid var(--separator); border-bottom-color: 
 }
 
 @media (orientation: portrait) and (max-width: 900px) {
-  .app-shell { padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); background-color: #535855; background-image: url('/nintendo-pattern.svg'), radial-gradient(circle at 50% 18%, #848881, #535855 76%); background-size: 240px 135px, 100% 100%; background-repeat: repeat, no-repeat; }
-  .console { position: relative; isolation: isolate; width: min(560px, 100%); height: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto auto clamp(150px, 22vh, 185px) auto; grid-template-rows: auto auto clamp(150px, 22svh, 185px) auto; align-content: start; align-items: center; gap: 8px 18px; overflow: hidden; border: 1px solid #d3d2c4; border-radius: 14px 14px 44px 14px; padding: 10px 12px 14px; background: linear-gradient(112deg, #c8c7b9, #aaa99d 72%, #929388); box-shadow: inset 3px 3px 0 rgba(255,255,255,.2), inset -5px -5px 0 rgba(58,60,56,.18), 0 10px 28px rgba(0,0,0,.38); }
-  .console::after { content: ''; position: absolute; z-index: -1; right: 20px; bottom: 15px; width: 68px; height: 26px; opacity: .28; background: repeating-linear-gradient(105deg, transparent 0 7px, #424641 7px 10px, transparent 10px 15px); transform: rotate(-5deg); }
+  .app-shell { place-items: center; padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); background-color: #535855; background-image: url('/nintendo-pattern.svg'), radial-gradient(circle at 50% 18%, #848881, #535855 76%); background-size: 240px 135px, 100% 100%; background-repeat: repeat, no-repeat; }
+  .console { position: relative; isolation: isolate; width: min(472px, 100%, calc((100svh - 16px) * .61)); height: auto; max-height: calc(100svh - 16px); aspect-ratio: 61 / 100; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto auto clamp(150px, 22vh, 185px) auto; grid-template-rows: auto auto clamp(150px, 22svh, 185px) auto; align-content: start; align-items: center; gap: 8px 18px; overflow: hidden; border: 1px solid #d3d2c4; border-radius: 28px; padding: 10px 12px 14px; background: linear-gradient(112deg, #c8c7b9, #aaa99d 72%, #929388); box-shadow: inset 3px 3px 0 rgba(255,255,255,.2), inset -5px -5px 0 rgba(58,60,56,.18), 0 10px 28px rgba(0,0,0,.38); }
+  .console::after { content: ''; position: absolute; z-index: -1; right: 112px; bottom: 17px; width: 68px; height: 26px; opacity: .28; background: repeating-linear-gradient(105deg, transparent 0 7px, #424641 7px 10px, transparent 10px 15px); transform: rotate(-5deg); }
+  .console-brand { position: absolute; z-index: 1; right: 18px; bottom: 16px; display: flex; align-items: center; gap: 6px; color: #9d302e; transform: skew(-7deg); transform-origin: right bottom; text-transform: uppercase; }
+  .console-brand strong { font-family: Arial Black, Impact, sans-serif; font-size: 22px; font-style: italic; font-weight: 900; line-height: .82; letter-spacing: -.12em; }
+  .console-brand span { font-size: 5px; font-weight: 900; line-height: .92; letter-spacing: -.02em; }
   .game-column { display: contents; }
   .quick-tools { grid-column: 1 / -1; grid-row: 1; gap: 3px; }
   .quick-tools button { flex: 1 1 0; min-width: 0; height: 29px; gap: 3px; border-color: #555953; padding-inline: 4px; color: #d9d8cc; background: #343837; box-shadow: inset 0 0 0 1px #171a19, 0 2px 0 rgba(49,51,48,.55); font-size: clamp(7px, 2.25vw, 9px); letter-spacing: 0; }
