@@ -53,6 +53,14 @@ const games = [
     cover: '/covers/pikachu-legend.png',
     available: true,
   },
+  {
+    title: '最终幻想II',
+    englishTitle: 'FINAL FANTASY II',
+    rom: '/ROMS/最终幻想II.nes',
+    accent: '#4f7d8d',
+    cover: '/covers/final-fantasy-ii.jpg',
+    available: true,
+  },
 ]
 
 type KeyboardAction = ControllerButton | 'quickSave' | 'quickLoad' | 'speedToggle' | 'coreMenu'
