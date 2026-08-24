@@ -1350,7 +1350,6 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
         </div>
       </section>
 
-      {error && <div className="notice notice-error" role="alert">{error}</div>}
       {activeTool && (
         <GameToolsDialog
           mode={activeTool}
