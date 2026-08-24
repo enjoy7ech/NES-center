@@ -989,7 +989,6 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
   const emulatorHost = useRef<HTMLDivElement>(null)
   const adapter = useRef<RetroArchAdapter | null>(null)
   const [status, setStatus] = useState<EmulatorStatus>('idle')
-  const [error, setError] = useState('')
   const [activeTool, setActiveTool] = useState<GameTool | null>(null)
   const [saveStateSlots, setSaveStateSlots] = useState<SaveStateSlot[]>([])
   const [busySlot, setBusySlot] = useState<number | null>(null)
@@ -1012,7 +1011,7 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
     if (!emulatorHost.current) return
     adapter.current = new RetroArchAdapter(emulatorHost.current, {
       onStatus: next => setStatus(next),
-      onError: message => setError(message),
+      onError: message => console.error('模拟器错误：', message),
     })
     return () => adapter.current?.destroy()
   }, [])
@@ -1065,11 +1064,10 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
   const startRom = (buffer: ArrayBuffer, fileName: string) => {
     try {
       inspectRom(buffer)
-      setError('')
       adapter.current?.loadRom(buffer, fileName)
     } catch (reason) {
       setStatus('error')
-      setError(reason instanceof Error ? reason.message : 'ROM 校验失败。')
+      console.error('ROM 校验失败。', reason)
     }
   }
 
@@ -1079,20 +1077,20 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
 
   const openTool = (tool: GameTool) => {
     if (status !== 'running' && status !== 'paused') {
-      setError('请等待游戏载入完成。')
+      console.error('请等待游戏载入完成。')
       return
     }
     setActiveTool(tool)
     if (tool !== 'cheats') {
       void adapter.current?.listSaveStates()
         .then(setSaveStateSlots)
-        .catch(reason => setError(reason instanceof Error ? reason.message : '读取槽位失败。'))
+        .catch(reason => console.error('读取槽位失败。', reason))
     }
   }
 
   const useQuickSlot = (mode: 'save' | 'load') => {
     if (status !== 'running' && status !== 'paused') {
-      setError('请等待游戏载入完成。')
+      console.error('请等待游戏载入完成。')
       return
     }
     if (quickBusy || busySlot !== null || stateOperationBusy.current) return
@@ -1107,13 +1105,12 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
     void action
       .then(saved => {
         if (mode === 'load' && !saved) {
-          setError('快速槽位还没有存档。')
+          console.error('快速槽位还没有存档。')
           return
         }
-        setError('')
         triggerHapticFeedback()
       })
-      .catch(reason => setError(reason instanceof Error ? reason.message : `${mode === 'save' ? '存档' : '读档'}失败`))
+      .catch(reason => console.error(`${mode === 'save' ? '存档' : '读档'}失败。`, reason))
       .finally(() => {
         stateOperationBusy.current = false
         setQuickBusy(false)
@@ -1145,14 +1142,13 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
 
   const cycleGameSpeed = () => {
     if (status !== 'running' && status !== 'paused') {
-      setError('请等待游戏载入完成。')
+      console.error('请等待游戏载入完成。')
       return
     }
     const currentIndex = gameSpeeds.indexOf(gameSpeed)
     const nextSpeed = gameSpeeds[(currentIndex + 1) % gameSpeeds.length]
     if (!adapter.current?.setSpeed(nextSpeed)) return
     setGameSpeed(nextSpeed)
-    setError('')
     triggerHapticFeedback()
   }
 
@@ -1198,10 +1194,9 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
       .then(saved => {
         if (!saved) return
         setSaveStateSlots(current => [...current.filter(item => item.slot !== slot), saved].sort((a, b) => a.slot - b.slot))
-        setError('')
         triggerHapticFeedback()
       })
-      .catch(reason => setError(reason instanceof Error ? reason.message : '保存失败。'))
+      .catch(reason => console.error('保存失败。', reason))
       .finally(() => {
         stateOperationBusy.current = false
         setBusySlot(null)
@@ -1214,11 +1209,10 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
     setBusySlot(slot)
     void adapter.current?.loadState(slot)
       .then(saved => {
-        if (!saved) setError('该槽位没有存档。')
-        else setError('')
+        if (!saved) console.error('该槽位没有存档。')
         if (saved) triggerHapticFeedback()
       })
-      .catch(reason => setError(reason instanceof Error ? reason.message : '读取失败。'))
+      .catch(reason => console.error('读取失败。', reason))
       .finally(() => {
         stateOperationBusy.current = false
         setBusySlot(null)
@@ -1232,10 +1226,9 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
     void adapter.current?.deleteState(slot)
       .then(() => {
         setSaveStateSlots(current => current.filter(item => item.slot !== slot))
-        setError('')
         triggerHapticFeedback()
       })
-      .catch(reason => setError(reason instanceof Error ? reason.message : '删除存档失败。'))
+      .catch(reason => console.error('删除存档失败。', reason))
       .finally(() => {
         stateOperationBusy.current = false
         setBusySlot(null)
@@ -1251,7 +1244,6 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
     const romPath = new URLSearchParams(window.location.search).get('rom')
     if (!romPath || !romPath.startsWith('/')) return
     const fileName = romPath.split('/').pop() ?? 'test.nes'
-    setError('正在加载内置测试 ROM。')
     const romRequest = fetch(romPath).then(response => {
       if (!response.ok) throw new Error(`ROM 请求失败：${response.status}`)
       const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
@@ -1273,7 +1265,7 @@ function EmulatorPage({ keyboardBindings }: { keyboardBindings: KeyboardBindings
       })
       .catch(reason => {
         setStatus('error')
-        setError(reason instanceof Error ? reason.message : '内置测试 ROM 加载失败。')
+        console.error('内置测试 ROM 加载失败。', reason)
       })
   }, [])
 
