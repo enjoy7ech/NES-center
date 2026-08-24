@@ -297,7 +297,9 @@ function DirectionalPad({ onInput }: { onInput: (button: ControllerButton, press
     const x = (clientX - (rect.left + rect.width / 2)) / (rect.width / 2)
     const y = (clientY - (rect.top + rect.height / 2)) / (rect.height / 2)
     const radius = Math.hypot(x, y)
-    if (radius > 1 || radius < 0.16) return []
+    // Once a drag starts, keep using its angle even outside the visual disc.
+    // Pointer capture turns the pad into a virtual joystick instead of a hit area.
+    if (radius < 0.16) return []
 
     if (Math.abs(x) >= Math.abs(y)) return [x >= 0 ? 'right' : 'left']
     return [y >= 0 ? 'down' : 'up']
@@ -331,6 +333,11 @@ function DirectionalPad({ onInput }: { onInput: (button: ControllerButton, press
   }
 
   useEffect(() => {
+    const trackActivePointer = (event: PointerEvent) => {
+      if (activePointer.current !== event.pointerId) return
+      event.preventDefault()
+      updatePointer(event.clientX, event.clientY)
+    }
     const releaseActivePointer = (event: PointerEvent) => releasePointer(event.pointerId)
     const releaseAll = () => {
       activePointer.current = null
@@ -338,12 +345,14 @@ function DirectionalPad({ onInput }: { onInput: (button: ControllerButton, press
       keyboardDirections.current.clear()
       applyDirections()
     }
+    window.addEventListener('pointermove', trackActivePointer, { capture: true, passive: false })
     window.addEventListener('pointerup', releaseActivePointer, true)
     window.addEventListener('pointercancel', releaseActivePointer, true)
     window.addEventListener('blur', releaseAll)
     window.addEventListener('pagehide', releaseAll)
     document.addEventListener('visibilitychange', releaseAll)
     return () => {
+      window.removeEventListener('pointermove', trackActivePointer, true)
       window.removeEventListener('pointerup', releaseActivePointer, true)
       window.removeEventListener('pointercancel', releaseActivePointer, true)
       window.removeEventListener('blur', releaseAll)
