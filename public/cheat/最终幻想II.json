@@ -61,6 +61,12 @@
       "enabled": false
     },
     {
+      "id": "stats-no-decrease",
+      "name": "属性不会下降",
+      "code": "A8C9?00:01",
+      "enabled": false
+    },
+    {
       "id": "stamina-growth-fast",
       "name": "体力快速成长",
       "code": "AC3F?09:FF",
