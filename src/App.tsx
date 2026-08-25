@@ -493,7 +493,7 @@ const saveSlots = [
     label: `SLOT ${String(index + 1).padStart(2, '0')}`,
   })),
 ]
-const maxCheats = 16
+const maxCheats = 18
 const autoSaveIntervalMs = 30_000
 const gameSpeeds: EmulatorSpeed[] = [1, 2, 5]
 const gameGeniePattern = /^[APZLGITYEOXUKSVN]{6}(?:[APZLGITYEOXUKSVN]{2})?$/

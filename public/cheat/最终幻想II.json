@@ -13,6 +13,18 @@
       "enabled": false
     },
     {
+      "id": "no-random-encounters",
+      "name": "不遇敌",
+      "code": "00F5:FF",
+      "enabled": false
+    },
+    {
+      "id": "rare-drop-100-percent",
+      "name": "最高档掉宝 100%",
+      "code": "A9F8?63:00",
+      "enabled": false
+    },
+    {
       "id": "party-no-ailments",
       "name": "全员无异常状态",
       "code": "6101:00+6141:00+6181:00+61C1:00",
