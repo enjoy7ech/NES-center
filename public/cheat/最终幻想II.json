@@ -33,13 +33,13 @@
     {
       "id": "max-hp-growth-fast",
       "name": "最大 HP 快速成长",
-      "code": "AC39?08:00",
+      "code": "AC39?08:FF",
       "enabled": false
     },
     {
       "id": "max-mp-growth-fast",
       "name": "最大 MP 快速成长",
-      "code": "AC3A?08:00",
+      "code": "AC3A?08:FF",
       "enabled": false
     },
     {
