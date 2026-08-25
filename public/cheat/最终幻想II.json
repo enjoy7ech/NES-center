@@ -39,7 +39,7 @@
     {
       "id": "max-mp-growth-fast",
       "name": "最大 MP 快速成长",
-      "code": "AC3A?08:FF",
+      "code": "AC3A?08:FF+A66D?07:00",
       "enabled": false
     },
     {
