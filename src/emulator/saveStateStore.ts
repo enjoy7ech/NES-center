@@ -87,6 +87,41 @@ export async function removeStaleSaveStateData(staleGameIds: ReadonlySet<string>
   }
 }
 
+export async function renameSaveStateGameId(previousGameId: string, nextGameId: string): Promise<void> {
+  if (previousGameId === nextGameId) return
+  const database = await openDatabase()
+  try {
+    const records = await readAllRecords(database)
+    const previousRecords = records.filter(record => record.gameId === previousGameId)
+    if (!previousRecords.length) return
+    const nextRecords = new Map(
+      records
+        .filter(record => record.gameId === nextGameId)
+        .map(record => [record.slot, record]),
+    )
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(STORE_NAME, 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+      previousRecords.forEach(record => {
+        const existing = nextRecords.get(record.slot)
+        if (!existing || record.updatedAt > existing.updatedAt) {
+          store.put({
+            ...record,
+            id: slotId(nextGameId, record.slot),
+            gameId: nextGameId,
+          } satisfies SaveStateRecord)
+        }
+        store.delete(record.id)
+      })
+      transaction.oncomplete = () => resolve()
+      transaction.onerror = () => reject(transaction.error ?? new Error('迁移改名游戏存档失败。'))
+      transaction.onabort = () => reject(transaction.error ?? new Error('迁移改名游戏存档已中止。'))
+    })
+  } finally {
+    database.close()
+  }
+}
+
 export async function writeSaveState(
   gameId: string,
   slot: number,
