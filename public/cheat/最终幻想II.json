@@ -29,6 +29,54 @@
       "name": "武器魔法熟练度快速成长",
       "code": "AC35?0A:64+AC36?0C:66",
       "enabled": false
+    },
+    {
+      "id": "max-hp-growth-fast",
+      "name": "最大 HP 快速成长",
+      "code": "AC39?08:00",
+      "enabled": false
+    },
+    {
+      "id": "max-mp-growth-fast",
+      "name": "最大 MP 快速成长",
+      "code": "AC3A?08:00",
+      "enabled": false
+    },
+    {
+      "id": "strength-growth-fast",
+      "name": "力量快速成长",
+      "code": "AC3B?2D:00",
+      "enabled": false
+    },
+    {
+      "id": "intellect-growth-fast",
+      "name": "智力快速成长",
+      "code": "AC3C?19:00",
+      "enabled": false
+    },
+    {
+      "id": "spirit-growth-fast",
+      "name": "精神快速成长",
+      "code": "AC3D?0F:00",
+      "enabled": false
+    },
+    {
+      "id": "stamina-growth-fast",
+      "name": "体力快速成长",
+      "code": "AC3F?09:FF",
+      "enabled": false
+    },
+    {
+      "id": "agility-growth-fast",
+      "name": "敏捷快速成长",
+      "code": "AC3E?FF:00",
+      "enabled": false
+    },
+    {
+      "id": "magic-power-growth-fast",
+      "name": "魔力快速成长",
+      "code": "AC40?09:FF",
+      "enabled": false
     }
   ]
 }
