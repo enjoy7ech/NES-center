@@ -25,6 +25,12 @@
       "enabled": false
     },
     {
+      "id": "mastery-growth-10x",
+      "name": "武器魔法熟练度成长 10×",
+      "code": "A5C1?C8:90+A5C2?90:2E+A5C3?2D:20+A5C4?18:20+A5C5?71:AC+A5C6?7E:EA+A96D?18:20+A96E?C8:20+A96F?71:AC+A970?7E:EA+AC20?69:C9+AC21?22:0A+AC22?C9:B0+AC23?22:0B+AC24?09:0A+AC25?04:85+AC26?C9:54+AC27?22:0A+AC28?29:0A+AC29?23:65+AC2A?12:54+AC2B?04:C8+AC2C?20:71+AC2D?23:7E+AC2E?80:60+AC2F?23:C8+AC30?20:A9+AC31?23:64+AC32?80:60",
+      "enabled": false
+    },
+    {
       "id": "party-no-ailments",
       "name": "全员无异常状态",
       "code": "6101:00+6141:00+6181:00+61C1:00",
