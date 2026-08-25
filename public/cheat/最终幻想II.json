@@ -1,8 +1,8 @@
 {
-  "game": "最终幻想II（简体中文）",
+  "game": "最终幻想II（LSP 简体中文）",
   "rom": {
-    "sha1": "f05b8ebfdd5330d7e7555c07ba47d2cb9841fe35",
-    "mapper": 4,
+    "sha1": "5eb938b9db71170d5e3b6fd7188977a0ba8893c8",
+    "mapper": 5,
     "prgBytes": 524288
   },
   "cheats": [
