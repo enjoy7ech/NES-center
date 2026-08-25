@@ -54,14 +54,6 @@ const games = [
     available: true,
   },
   {
-    title: '宇宙战将',
-    englishTitle: 'SPACE GENERAL',
-    rom: '/ROMS/宇宙战将.nes',
-    accent: '#4f7d8d',
-    cover: '/covers/final-fantasy-ii.jpg',
-    available: true,
-  },
-  {
     title: '最终幻想II（LSP 简体中文）',
     englishTitle: 'FINAL FANTASY II · LSP ZH-CN',
     rom: '/ROMS/最终幻想II.nes',
