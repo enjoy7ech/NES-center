@@ -230,16 +230,18 @@ export class RetroArchAdapter implements EmulatorAdapter {
     const willFastForward = fastSpeed !== null
 
     if (wasFastForwarding && willFastForward) {
-      // RetroArch caches the ratio when fast-forward starts. Leave the mode,
-      // wait for the synthetic hotkey release, reload, then enter it again.
-      this.pressFastForwardToggle()
-      this.speedTransitionTimer = window.setTimeout(() => {
-        this.prepareConfig(fastSpeed)
-        this.module?._cmd_reload_config?.()
-        this.pressFastForwardToggle()
-        this.speed = speed
-        this.speedTransitionTimer = null
-      }, MIN_VIRTUAL_PRESS_MS + 20)
+      // RetroArch caches the ratio when fast-forward starts. Complete each
+      // synthetic key press before the next one so rapid UI taps cannot lose
+      // an F10 rising edge and desynchronise the displayed speed.
+      this.pressFastForwardToggle(() => {
+        this.scheduleSpeedStep(() => {
+          this.prepareConfig(fastSpeed)
+          this.module?._cmd_reload_config?.()
+          this.pressFastForwardToggle(() => {
+            this.speed = speed
+          })
+        }, 20)
+      })
       return true
     }
 
@@ -248,16 +250,29 @@ export class RetroArchAdapter implements EmulatorAdapter {
       this.module?._cmd_reload_config?.()
     }
     if (wasFastForwarding !== willFastForward) {
-      this.pressFastForwardToggle()
+      this.pressFastForwardToggle(() => {
+        this.speed = speed
+      })
+      return true
     }
     this.speed = speed
     return true
   }
 
-  private pressFastForwardToggle() {
+  private scheduleSpeedStep(callback: () => void, delay: number) {
+    this.speedTransitionTimer = window.setTimeout(() => {
+      this.speedTransitionTimer = null
+      callback()
+    }, delay)
+  }
+
+  private pressFastForwardToggle(onReleased: () => void) {
     const binding = { code: 'F10', key: 'F10', keyCode: 121 }
     this.dispatchCoreKeyboardEvent(binding, true)
-    window.setTimeout(() => this.dispatchCoreKeyboardEvent(binding, false), MIN_VIRTUAL_PRESS_MS)
+    this.scheduleSpeedStep(() => {
+      this.dispatchCoreKeyboardEvent(binding, false)
+      onReleased()
+    }, MIN_VIRTUAL_PRESS_MS)
   }
 
   public toggleMenu() {
