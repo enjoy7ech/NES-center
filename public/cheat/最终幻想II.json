@@ -15,7 +15,7 @@
     {
       "id": "no-random-encounters",
       "name": "不遇敌（随机战）",
-      "code": "CF6E?C5:C9+CF6F?F8:00",
+      "code": "C53F?C5:C9+C540?80:00+CF6E?C5:C9+CF6F?F8:00",
       "enabled": false
     },
     {
