@@ -33,7 +33,7 @@
     {
       "id": "max-hp-growth-fast",
       "name": "最大 HP 快速成长",
-      "code": "AC39?08:FF",
+      "code": "AC39?08:FF+A647?07:00",
       "enabled": false
     },
     {
