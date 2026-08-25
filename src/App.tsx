@@ -62,8 +62,8 @@ const games = [
     available: true,
   },
   {
-    title: '最终幻想II（日版）',
-    englishTitle: 'FINAL FANTASY II · JAPAN',
+    title: '最终幻想II（简体中文）',
+    englishTitle: 'FINAL FANTASY II · ZH-CN',
     rom: '/ROMS/最终幻想II.nes',
     accent: '#8c6e54',
     cover: '/covers/final-fantasy-ii.jpg',
